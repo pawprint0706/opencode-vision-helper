@@ -91,8 +91,11 @@ export function parseAnalyzeArgs(args: string[]): ParsedAnalyze {
   return parsed;
 }
 
-function printJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+function printJson(
+  value: unknown,
+  stream: NodeJS.WritableStream = process.stdout,
+): void {
+  stream.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
 async function runAnalyze(args: string[]): Promise<number> {
@@ -178,7 +181,7 @@ if (import.meta.url === entrypoint) {
     },
     (error: unknown) => {
       const appError = asAppError(error);
-      printJson(appError.toJSON());
+      printJson(appError.toJSON(), process.stderr);
       process.exitCode = 1;
     },
   );

@@ -36,6 +36,11 @@ Analysis is refused unless `--allow-upload` is present because the image will
 leave the local machine. The default prompt uses a validated JSON report;
 `--prompt` returns the provider's free-form text.
 
+Successful results and help are written to stdout with exit code 0. Errors are
+written as a stable JSON object to stderr with exit code 1. `doctor` also returns
+exit code 1 when its checks complete but no connected Go/Zen image model is
+available.
+
 The complete interface is:
 
 ```text
