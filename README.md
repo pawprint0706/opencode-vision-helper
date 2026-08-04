@@ -41,6 +41,7 @@ The complete interface is:
 ```text
 opencode-vision-helper analyze <image> [--prompt <text>] [--model <provider/model>]
                                       [--json] [--allow-upload] [--keep-session]
+                                      [--timeout <seconds>]
 opencode-vision-helper doctor
 ```
 
@@ -48,6 +49,11 @@ Only `opencode-go/<model-id>` and `opencode/<model-id>` model identifiers are
 in scope. All OpenCode tools and session permissions are disabled for the
 analysis session. MCP, screen capture, desktop control, and arbitrary provider
 URLs are not part of v1.
+
+Analysis times out after 120 seconds by default. `--timeout` accepts 1 to 1800
+seconds. `Ctrl+C` aborts the provider operation, then the helper attempts to stop
+and remove its temporary OpenCode session. If analysis succeeds but session
+deletion fails, the result includes the retained session ID and a cleanup warning.
 
 ## Development
 

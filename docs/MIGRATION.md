@@ -50,6 +50,11 @@ configuration, model metadata, and model-specific wire protocols.
   `external_directory` permission when the resolved target is outside the worktree.
 - SDK file parts use only the local basename rather than transmitting an absolute
   local path as the filename.
+- CLI and native calls have a bounded analysis timeout and propagate caller/SIGINT
+  cancellation. A failed request aborts the server-side session before cleanup.
+- SDK and provider failures are mapped to stable, sanitized errors. A cleanup
+  failure after successful analysis returns a warning and retained session ID
+  instead of hiding the orphaned session or encouraging a duplicate paid retry.
 
 ## Source assets
 

@@ -5,7 +5,7 @@ import {
 } from "@opencode-ai/sdk/v2";
 import { basename } from "node:path";
 
-import { AppError } from "./errors.js";
+import { AppError, mapOpenCodeError } from "./errors.js";
 import { imageDataUrl, type PreparedImage } from "./imaging.js";
 import {
   imageModels,
@@ -33,6 +33,12 @@ export type AnalysisResult = {
   text?: string;
   session_id?: string;
   cost?: number;
+  warnings?: AnalysisWarning[];
+};
+
+export type AnalysisWarning = {
+  code: "SESSION_CLEANUP_FAILED";
+  message: string;
 };
 
 type ProviderState = {
@@ -81,9 +87,7 @@ export async function withOpenCode<T>(
       signal ? { timeout: 10_000, signal } : { timeout: 10_000 },
     );
   } catch (error) {
-    throw new AppError("OPENCODE_UNAVAILABLE", "Could not start the OpenCode server.", {
-      cause: error,
-    });
+    throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE", signal);
   }
   try {
     return await callback(instance.client);
@@ -93,7 +97,11 @@ export async function withOpenCode<T>(
 }
 
 export async function doctor(directory: string): Promise<DoctorResult> {
-  return withOpenCode((client) => doctorWithClient(client, directory));
+  try {
+    return await withOpenCode((client) => doctorWithClient(client, directory));
+  } catch (error) {
+    throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE");
+  }
 }
 
 export async function doctorWithClient(
@@ -127,6 +135,67 @@ export async function analyzeWithOpenCode(options: AnalyzeOptions): Promise<Anal
   return withOpenCode((client) => analyzeWithClient(client, options), options.signal);
 }
 
+function responseError(error: { name: string; data?: unknown }): AppError {
+  if (error.name === "StructuredOutputError") {
+    return new AppError(
+      "STRUCTURED_OUTPUT_INVALID",
+      "OpenCode could not produce a valid structured vision report.",
+    );
+  }
+  if (error.name === "MessageAbortedError") {
+    return new AppError("ANALYSIS_ABORTED", "Image analysis was canceled.");
+  }
+  if (error.name === "ProviderAuthError") {
+    return new AppError(
+      "PROVIDER_NOT_CONNECTED",
+      "The selected OpenCode provider could not authenticate.",
+    );
+  }
+  const retryable = error.name === "APIError" &&
+    Boolean(
+      error.data &&
+      typeof error.data === "object" &&
+      "isRetryable" in error.data &&
+      error.data.isRetryable,
+    );
+  return new AppError(
+    "PROVIDER_ERROR",
+    `OpenCode analysis failed with ${error.name}.`,
+    { retryable },
+  );
+}
+
+async function deleteSession(
+  client: OpencodeClient,
+  directory: string,
+  sessionID: string,
+): Promise<boolean> {
+  try {
+    await client.session.delete(
+      { sessionID, directory },
+      { throwOnError: true },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function abortSession(
+  client: OpencodeClient,
+  directory: string,
+  sessionID: string,
+): Promise<void> {
+  try {
+    await client.session.abort(
+      { sessionID, directory },
+      { throwOnError: true },
+    );
+  } catch {
+    // Cleanup remains best-effort; the original analysis error takes precedence.
+  }
+}
+
 export async function analyzeWithClient(
   client: OpencodeClient,
   options: AnalyzeOptions,
@@ -137,24 +206,25 @@ export async function analyzeWithClient(
       "Analysis requires explicit approval to upload the selected image.",
     );
   }
-  const ref = parseModelRef(options.model);
-  const state = await providerState(client, options.directory, options.signal);
-  validateModel(ref, state);
-  const tools = await disabledTools(client, options.directory, options.signal);
-  const created = await client.session.create(
-    {
-      directory: options.directory,
-      title: "opencode-vision-helper analysis",
-      model: { id: ref.modelID, providerID: ref.providerID },
-      permission: [{ permission: "*", pattern: "*", action: "deny" }],
-      metadata: { service: "opencode-vision-helper" },
-    },
-    options.signal
-      ? { throwOnError: true, signal: options.signal }
-      : { throwOnError: true },
-  );
-  const sessionID = created.data.id;
+  let sessionID: string | undefined;
   try {
+    const ref = parseModelRef(options.model);
+    const state = await providerState(client, options.directory, options.signal);
+    validateModel(ref, state);
+    const tools = await disabledTools(client, options.directory, options.signal);
+    const created = await client.session.create(
+      {
+        directory: options.directory,
+        title: "opencode-vision-helper analysis",
+        model: { id: ref.modelID, providerID: ref.providerID },
+        permission: [{ permission: "*", pattern: "*", action: "deny" }],
+        metadata: { service: "opencode-vision-helper" },
+      },
+      options.signal
+        ? { throwOnError: true, signal: options.signal }
+        : { throwOnError: true },
+    );
+    sessionID = created.data.id;
     const promptOptions = options.signal
       ? { throwOnError: true as const, signal: options.signal }
       : { throwOnError: true as const };
@@ -183,39 +253,47 @@ export async function analyzeWithClient(
       promptOptions,
     );
     if (response.data.info.error) {
-      throw new AppError(
-        response.data.info.error.name === "StructuredOutputError"
-          ? "STRUCTURED_OUTPUT_INVALID"
-          : "PROVIDER_ERROR",
-        `OpenCode analysis failed: ${response.data.info.error.name}`,
-      );
+      throw responseError(response.data.info.error);
     }
     const base: AnalysisResult = {
       model: `${ref.providerID}/${ref.modelID}`,
       cost: response.data.info.cost,
     };
-    if (options.keepSession) {
-      base.session_id = sessionID;
-    }
+    let result: AnalysisResult;
     if (options.structured) {
-      return { ...base, report: parseVisionReport(response.data.info.structured) };
+      result = { ...base, report: parseVisionReport(response.data.info.structured) };
+    } else {
+      const text = response.data.parts
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("");
+      if (!text.trim()) {
+        throw new AppError("PROVIDER_ERROR", "OpenCode returned an empty text response.");
+      }
+      result = { ...base, text };
     }
-    const text = response.data.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join("");
-    if (!text.trim()) {
-      throw new AppError("PROVIDER_ERROR", "OpenCode returned an empty text response.");
+
+    if (options.keepSession) {
+      return { ...result, session_id: sessionID };
     }
-    return { ...base, text };
-  } finally {
-    if (!options.keepSession) {
-      await client.session
-        .delete(
-          { sessionID, directory: options.directory },
-          { throwOnError: true },
-        )
-        .catch(() => undefined);
+    const deleted = await deleteSession(client, options.directory, sessionID);
+    sessionID = undefined;
+    if (!deleted) {
+      return {
+        ...result,
+        session_id: created.data.id,
+        warnings: [{
+          code: "SESSION_CLEANUP_FAILED",
+          message: "Analysis succeeded, but the temporary OpenCode session could not be deleted.",
+        }],
+      };
     }
+    return result;
+  } catch (error) {
+    if (sessionID && !options.keepSession) {
+      await abortSession(client, options.directory, sessionID);
+      await deleteSession(client, options.directory, sessionID);
+    }
+    throw mapOpenCodeError(error, "PROVIDER_ERROR", options.signal);
   }
 }

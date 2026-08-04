@@ -83,7 +83,7 @@ describe("vision_analyze native tool", () => {
         directory,
         structured: true,
         uploadApproved: true,
-        signal: toolContext.value.abort,
+        signal: expect.any(AbortSignal),
       }),
     );
   });

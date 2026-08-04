@@ -35,7 +35,10 @@ Then merge the plugin and model selection into that project's `opencode.json`:
   "plugin": [
     [
       "opencode-vision-helper/plugin",
-      { "model": "opencode-go/<image-capable-model-id>" }
+      {
+        "model": "opencode-go/<image-capable-model-id>",
+        "timeoutMs": 120000
+      }
     ]
   ],
   "permission": {
@@ -52,6 +55,11 @@ registration.
 The model may instead be supplied on each tool call or through
 `OPENCODE_VISION_MODEL`. Only `opencode-go/*` and `opencode/*` models whose input
 capabilities include images are accepted.
+
+`timeoutMs` is optional and defaults to 120000. It must be between 1000 and
+1800000 milliseconds. Cancellation from OpenCode's tool context is propagated to
+provider discovery, session creation, and prompting; failures abort and remove the
+temporary analysis session on a best-effort basis.
 
 ## Permission policy
 

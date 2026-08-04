@@ -4,6 +4,7 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { tool, type ToolContext, type ToolDefinition } from "@opencode-ai/plugin";
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
 
+import { createAbortScope, DEFAULT_ANALYSIS_TIMEOUT_MS } from "./abort.js";
 import { AppError, asAppError } from "./errors.js";
 import { prepareImage, type PreparedImage } from "./imaging.js";
 import { analyzeWithClient, type AnalysisResult, type AnalyzeOptions } from "./opencode.js";
@@ -17,6 +18,7 @@ export type VisionToolDependencies = {
 
 export type VisionToolOptions = {
   defaultModel?: string;
+  timeoutMs?: number;
 };
 
 const DEFAULT_DEPENDENCIES: VisionToolDependencies = {
@@ -99,19 +101,33 @@ export function createVisionAnalyzeTool(
         });
         const image = await dependencies.prepareImage(imagePath);
         const structured = args.prompt === undefined;
-        const result = await dependencies.analyze(client, {
-          directory: context.directory,
-          image,
-          model,
-          prompt: args.prompt ?? DEFAULT_PROMPT,
-          structured,
-          uploadApproved: true,
-          signal: context.abort,
-        });
+        const abortScope = createAbortScope(
+          options.timeoutMs ?? DEFAULT_ANALYSIS_TIMEOUT_MS,
+          context.abort,
+        );
+        let result: AnalysisResult;
+        try {
+          result = await dependencies.analyze(client, {
+            directory: context.directory,
+            image,
+            model,
+            prompt: args.prompt ?? DEFAULT_PROMPT,
+            structured,
+            uploadApproved: true,
+            signal: abortScope.signal,
+          });
+        } finally {
+          abortScope.dispose();
+        }
         return {
           title: "Vision analysis",
           output: formatToolResult(result),
-          metadata: { model: result.model, cost: result.cost },
+          metadata: {
+            model: result.model,
+            cost: result.cost,
+            session_id: result.session_id,
+            warnings: result.warnings,
+          },
         };
       } catch (error) {
         return JSON.stringify(asAppError(error).toJSON());

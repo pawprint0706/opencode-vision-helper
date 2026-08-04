@@ -6,12 +6,15 @@ export type ErrorCode =
   | "MODEL_NOT_FOUND"
   | "MODEL_NOT_VISION_CAPABLE"
   | "UPLOAD_NOT_APPROVED"
+  | "ANALYSIS_ABORTED"
+  | "ANALYSIS_TIMEOUT"
   | "STRUCTURED_OUTPUT_INVALID"
   | "PROVIDER_ERROR"
   | "UNKNOWN";
 
 const RETRYABLE = new Set<ErrorCode>([
   "OPENCODE_UNAVAILABLE",
+  "ANALYSIS_TIMEOUT",
   "PROVIDER_ERROR",
   "UNKNOWN",
 ]);
@@ -26,6 +29,8 @@ const NEXT_ACTION: Record<ErrorCode, string> = {
   MODEL_NOT_VISION_CAPABLE: "Choose a model whose input capabilities include images.",
   UPLOAD_NOT_APPROVED:
     "Review the image for sensitive content and retry with --allow-upload after approval.",
+  ANALYSIS_ABORTED: "Retry only if image analysis is still needed.",
+  ANALYSIS_TIMEOUT: "Retry with a longer --timeout or choose a faster vision model.",
   STRUCTURED_OUTPUT_INVALID: "Retry with another image-capable model.",
   PROVIDER_ERROR: "Check OpenCode provider status and retry.",
   UNKNOWN: "Retry; if the problem persists, report the sanitized error output.",
@@ -37,11 +42,15 @@ export class AppError extends Error {
   readonly nextAction: string;
   readonly cause?: unknown;
 
-  constructor(code: ErrorCode, message: string, options?: { cause?: unknown }) {
+  constructor(
+    code: ErrorCode,
+    message: string,
+    options?: { cause?: unknown; retryable?: boolean },
+  ) {
     super(message);
     this.name = "AppError";
     this.code = code;
-    this.retryable = RETRYABLE.has(code);
+    this.retryable = options?.retryable ?? RETRYABLE.has(code);
     this.nextAction = NEXT_ACTION[code];
     if (options && "cause" in options) {
       this.cause = options.cause;
@@ -63,4 +72,64 @@ export function asAppError(error: unknown): AppError {
     return error;
   }
   return new AppError("UNKNOWN", "Unexpected internal error.", { cause: error });
+}
+
+export function mapOpenCodeError(
+  error: unknown,
+  fallback: "OPENCODE_UNAVAILABLE" | "PROVIDER_ERROR",
+  signal?: AbortSignal,
+): AppError {
+  if (error instanceof AppError) {
+    return error;
+  }
+  if (signal?.aborted) {
+    return signal.reason instanceof AppError
+      ? signal.reason
+      : new AppError("ANALYSIS_ABORTED", "Image analysis was canceled.", { cause: error });
+  }
+  if (error instanceof Error && error.name === "AbortError") {
+    return new AppError("ANALYSIS_ABORTED", "Image analysis was canceled.", { cause: error });
+  }
+  if (error && typeof error === "object" && "name" in error) {
+    const name = error.name;
+    if (name === "ProviderAuthError") {
+      return new AppError(
+        "PROVIDER_NOT_CONNECTED",
+        "The selected OpenCode provider could not authenticate.",
+        { cause: error },
+      );
+    }
+    if (name === "StructuredOutputError") {
+      return new AppError(
+        "STRUCTURED_OUTPUT_INVALID",
+        "OpenCode could not produce a valid structured vision report.",
+        { cause: error },
+      );
+    }
+    if (name === "MessageAbortedError") {
+      return new AppError("ANALYSIS_ABORTED", "Image analysis was canceled.", {
+        cause: error,
+      });
+    }
+    if (name === "APIError") {
+      const data = "data" in error && error.data && typeof error.data === "object"
+        ? error.data
+        : undefined;
+      const retryable = Boolean(
+        data && "isRetryable" in data && data.isRetryable,
+      );
+      return new AppError(
+        "PROVIDER_ERROR",
+        "OpenCode provider request failed.",
+        { cause: error, retryable },
+      );
+    }
+  }
+  return new AppError(
+    fallback,
+    fallback === "OPENCODE_UNAVAILABLE"
+      ? "Could not communicate with the OpenCode server."
+      : "OpenCode could not complete image analysis.",
+    { cause: error },
+  );
 }

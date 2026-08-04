@@ -19,6 +19,7 @@ describe("CLI argument parsing", () => {
       json: true,
       allowUpload: true,
       keepSession: false,
+      timeoutMs: 120_000,
     });
   });
 
@@ -31,5 +32,12 @@ describe("CLI argument parsing", () => {
   it("rejects unknown options and missing image paths", () => {
     expect(() => parseAnalyzeArgs([])).toThrow(AppError);
     expect(() => parseAnalyzeArgs(["shot.png", "--wat"])).toThrow(/Unknown option/);
+    expect(() => parseAnalyzeArgs(["shot.png", "--timeout", "0"])).toThrow(
+      /--timeout/,
+    );
+  });
+
+  it("parses an explicit analysis timeout", () => {
+    expect(parseAnalyzeArgs(["shot.png", "--timeout", "300"]).timeoutMs).toBe(300_000);
   });
 });

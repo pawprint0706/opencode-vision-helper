@@ -1,6 +1,7 @@
 import type { OpencodeClient, Provider } from "@opencode-ai/sdk/v2";
 import { describe, expect, it } from "vitest";
 
+import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
 import {
   analyzeWithClient,
@@ -50,20 +51,32 @@ const image: PreparedImage = {
   originalHeight: 1,
 };
 
-function fakeClient(structured: boolean) {
+type FakeBehavior = {
+  providerError?: unknown;
+  promptError?: unknown;
+  responseError?: { name: string; data?: unknown };
+  deleteError?: unknown;
+};
+
+function fakeClient(structured: boolean, behavior: FakeBehavior = {}) {
   const calls: Record<string, unknown> = {};
   const client = {
     global: {
       health: async () => ({ data: { healthy: true, version: "1.18.12" } }),
     },
     provider: {
-      list: async () => ({
-        data: {
-          all: [visionProvider()],
-          default: {},
-          connected: ["opencode-go"],
-        },
-      }),
+      list: async () => {
+        if (behavior.providerError) {
+          throw behavior.providerError;
+        }
+        return {
+          data: {
+            all: [visionProvider()],
+            default: {},
+            connected: ["opencode-go"],
+          },
+        };
+      },
     },
     tool: {
       ids: async () => ({ data: ["bash", "vision_analyze"] }),
@@ -75,11 +88,15 @@ function fakeClient(structured: boolean) {
       },
       prompt: async (parameters: unknown) => {
         calls.prompt = parameters;
+        if (behavior.promptError) {
+          throw behavior.promptError;
+        }
         return {
           data: {
             info: {
               cost: 0.001,
               structured: structured ? { summary: "Looks good", issues: [] } : undefined,
+              error: behavior.responseError,
             },
             parts: structured
               ? []
@@ -89,6 +106,13 @@ function fakeClient(structured: boolean) {
       },
       delete: async (parameters: unknown) => {
         calls.delete = parameters;
+        if (behavior.deleteError) {
+          throw behavior.deleteError;
+        }
+        return { data: true };
+      },
+      abort: async (parameters: unknown) => {
+        calls.abort = parameters;
         return { data: true };
       },
     },
@@ -148,6 +172,7 @@ describe("OpenCode SDK contract", () => {
       sessionID: "session-1",
       directory: "C:\\project",
     });
+    expect(calls.abort).toBeUndefined();
   });
 
   it("returns custom-prompt text and can retain the isolated session", async () => {
@@ -184,5 +209,89 @@ describe("OpenCode SDK contract", () => {
       }),
     ).rejects.toMatchObject({ code: "UPLOAD_NOT_APPROVED" });
     expect(calls).toEqual({});
+  });
+
+  it("sanitizes thrown SDK errors and still deletes the temporary session", async () => {
+    const { calls, client } = fakeClient(true, {
+      promptError: new Error("secret request details"),
+    });
+    await expect(
+      analyzeWithClient(client, {
+        directory: "C:\\project",
+        image,
+        model: "opencode-go/vision",
+        prompt: "Inspect the UI.",
+        structured: true,
+        uploadApproved: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "PROVIDER_ERROR",
+      message: "OpenCode could not complete image analysis.",
+    });
+    expect(calls.delete).toEqual({
+      sessionID: "session-1",
+      directory: "C:\\project",
+    });
+    expect(calls.abort).toEqual({
+      sessionID: "session-1",
+      directory: "C:\\project",
+    });
+  });
+
+  it("maps provider response errors without exposing provider response bodies", async () => {
+    const { client } = fakeClient(true, {
+      responseError: {
+        name: "APIError",
+        data: { isRetryable: false, responseBody: "secret upstream body" },
+      },
+    });
+    await expect(
+      analyzeWithClient(client, {
+        directory: "C:\\project",
+        image,
+        model: "opencode-go/vision",
+        prompt: "Inspect the UI.",
+        structured: true,
+        uploadApproved: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "PROVIDER_ERROR",
+      retryable: false,
+      message: "OpenCode analysis failed with APIError.",
+    });
+  });
+
+  it("returns a cleanup warning and session id after a successful analysis", async () => {
+    const { client } = fakeClient(true, { deleteError: new Error("delete failed") });
+    await expect(
+      analyzeWithClient(client, {
+        directory: "C:\\project",
+        image,
+        model: "opencode-go/vision",
+        prompt: "Inspect the UI.",
+        structured: true,
+        uploadApproved: true,
+      }),
+    ).resolves.toMatchObject({
+      session_id: "session-1",
+      warnings: [{ code: "SESSION_CLEANUP_FAILED" }],
+    });
+  });
+
+  it("preserves an explicit timeout reason from the abort signal", async () => {
+    const controller = new AbortController();
+    controller.abort(new AppError("ANALYSIS_TIMEOUT", "Timed out."));
+    const { client } = fakeClient(true, { providerError: new DOMException("aborted", "AbortError") });
+    await expect(
+      analyzeWithClient(client, {
+        directory: "C:\\project",
+        image,
+        model: "opencode-go/vision",
+        prompt: "Inspect the UI.",
+        structured: true,
+        uploadApproved: true,
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ code: "ANALYSIS_TIMEOUT", message: "Timed out." });
   });
 });

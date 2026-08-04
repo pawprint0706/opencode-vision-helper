@@ -6,6 +6,8 @@ import { createVisionAnalyzeTool } from "./tool.js";
 export const VisionHelperPlugin: Plugin = async ({ serverUrl, directory }, options) => {
   const configuredModel = options?.model;
   const defaultModel = typeof configuredModel === "string" ? configuredModel : undefined;
+  const configuredTimeout = options?.timeoutMs;
+  const timeoutMs = typeof configuredTimeout === "number" ? configuredTimeout : undefined;
   const client = createOpencodeClient({
     baseUrl: serverUrl.toString(),
     directory,
@@ -15,7 +17,10 @@ export const VisionHelperPlugin: Plugin = async ({ serverUrl, directory }, optio
       vision_analyze: createVisionAnalyzeTool(
         client,
         undefined,
-        defaultModel ? { defaultModel } : {},
+        {
+          ...(defaultModel ? { defaultModel } : {}),
+          ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+        },
       ),
     },
   };
