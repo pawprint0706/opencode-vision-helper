@@ -1,4 +1,4 @@
-import { mkdtemp, rm, truncate, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -59,6 +59,26 @@ describe("image preparation", () => {
     expect(prepared.mime).toBe("image/png");
     expect(imageDataUrl(prepared)).toMatch(/^data:image\/png;base64,/);
     expect((await sharp(imagePath).metadata()).width).toBe(2000);
+  });
+
+  it("canonicalizes an image reached through a directory symlink or junction", async () => {
+    const directory = await temporaryDirectory();
+    const realDirectory = join(directory, "real");
+    const linkedDirectory = join(directory, "linked");
+    const imagePath = join(realDirectory, "shot.png");
+    await mkdir(realDirectory);
+    await sharp({ create: { width: 10, height: 10, channels: 3, background: "white" } })
+      .png()
+      .toFile(imagePath);
+    await symlink(
+      realDirectory,
+      linkedDirectory,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+
+    const prepared = await prepareImage(join(linkedDirectory, "shot.png"));
+
+    expect(prepared.path).toBe(await realpath(imagePath));
   });
 
   it("rejects a corrupt image", async () => {

@@ -314,6 +314,52 @@ describe("OpenCode SDK HTTP boundary", () => {
     ]);
   });
 
+  it("maps a structured-output failure returned by the server", async () => {
+    const { client, requests } = await fakeServer((request) => {
+      if (request.path === "/provider") {
+        return { body: providerPayload() };
+      }
+      if (request.path === "/experimental/tool/ids") {
+        return { body: ["vision_analyze"] };
+      }
+      if (request.method === "POST" && request.path === "/session") {
+        return { body: { id: "session-structured" } };
+      }
+      if (request.path === "/session/session-structured/message") {
+        return {
+          body: {
+            info: {
+              cost: 0,
+              error: { name: "StructuredOutputError", data: { message: "raw output" } },
+            },
+            parts: [],
+          },
+        };
+      }
+      return { body: true };
+    });
+
+    await expect(
+      analyzeWithClient(client, {
+        directory: "D:\\workspace",
+        image,
+        model: "opencode-go/vision",
+        prompt: "Inspect the UI.",
+        structured: true,
+        uploadApproved: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "STRUCTURED_OUTPUT_INVALID",
+      message: "OpenCode could not produce a valid structured vision report.",
+    });
+    expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
+      "POST /session/session-structured/abort",
+    );
+    expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
+      "DELETE /session/session-structured",
+    );
+  });
+
   it("maps an SDK-wrapped provider authentication response", async () => {
     const { client, requests } = await fakeServer(() => ({
       status: 401,

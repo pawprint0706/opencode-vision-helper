@@ -54,6 +54,11 @@ try {
     { cwd: consumer },
   );
 
+  const cli = await runNpm(["exec", "--offline", "--", "opencode-vision-helper", "--help"], {
+    cwd: consumer,
+  });
+  assert.match(cli.stdout, /opencode-vision-helper analyze <image>/);
+
   await run(
     process.execPath,
     [
