@@ -64,6 +64,8 @@ Analysis times out after 120 seconds by default. `--timeout` accepts 1 to 1800
 seconds. `Ctrl+C` aborts the provider operation, then the helper attempts to stop
 and remove its temporary OpenCode session. If analysis succeeds but session
 deletion fails, the result includes the retained session ID and a cleanup warning.
+`doctor` uses the same default time bound and supports `Ctrl+C`, but never uploads
+an image or starts a billed model prompt.
 
 ## Development
 

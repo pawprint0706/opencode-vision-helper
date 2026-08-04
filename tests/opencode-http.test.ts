@@ -159,6 +159,35 @@ describe("OpenCode SDK HTTP boundary", () => {
     ]);
   });
 
+  it("cancels an in-flight doctor provider check", async () => {
+    const controller = new AbortController();
+    let markProviderStarted: (() => void) | undefined;
+    const providerStarted = new Promise<void>((resolve) => {
+      markProviderStarted = resolve;
+    });
+    const { client } = await fakeServer(async (request) => {
+      if (request.path === "/global/health") {
+        return { body: { healthy: true, version: "1.18.12" } };
+      }
+      markProviderStarted?.();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return { body: providerPayload() };
+    });
+    const checking = doctorWithClient(
+      client,
+      "D:\\workspace",
+      controller.signal,
+    );
+
+    await providerStarted;
+    controller.abort(new AppError("ANALYSIS_ABORTED", "Doctor canceled by test."));
+
+    await expect(checking).rejects.toMatchObject({
+      code: "ANALYSIS_ABORTED",
+      message: "Doctor canceled by test.",
+    });
+  });
+
   it("serializes an isolated image request and deletes its session", async () => {
     const directory = "D:\\workspace";
     const { client, requests } = await fakeServer((request) => {

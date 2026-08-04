@@ -96,20 +96,30 @@ export async function withOpenCode<T>(
   }
 }
 
-export async function doctor(directory: string): Promise<DoctorResult> {
+export async function doctor(
+  directory: string,
+  signal?: AbortSignal,
+): Promise<DoctorResult> {
   try {
-    return await withOpenCode((client) => doctorWithClient(client, directory));
+    return await withOpenCode(
+      (client) => doctorWithClient(client, directory, signal),
+      signal,
+    );
   } catch (error) {
-    throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE");
+    throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE", signal);
   }
 }
 
 export async function doctorWithClient(
   client: OpencodeClient,
   directory: string,
+  signal?: AbortSignal,
 ): Promise<DoctorResult> {
-  const health = await client.global.health({ throwOnError: true });
-  const state = await providerState(client, directory);
+  const requestOptions = signal
+    ? { throwOnError: true as const, signal }
+    : { throwOnError: true as const };
+  const health = await client.global.health(requestOptions);
+  const state = await providerState(client, directory, signal);
   const connected = state.connected.filter((id) => id === "opencode-go" || id === "opencode");
   const models = imageModels(state.providers, connected);
   return {

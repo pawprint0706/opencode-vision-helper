@@ -1,10 +1,15 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AppError } from "../src/errors.js";
-import { parseAnalyzeArgs } from "../src/cli.js";
+import type { PreparedImage } from "../src/imaging.js";
+import {
+  main,
+  parseAnalyzeArgs,
+  type CliServices,
+} from "../src/cli.js";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -36,6 +41,58 @@ async function runCli(args: string[]): Promise<CliResult> {
     child.once("error", reject);
     child.once("close", (exitCode) => resolve({ exitCode, stdout, stderr }));
   });
+}
+
+const preparedImage: PreparedImage = {
+  path: "screen.png",
+  bytes: Buffer.from("image"),
+  mime: "image/png",
+  width: 1,
+  height: 1,
+  originalWidth: 1,
+  originalHeight: 1,
+};
+
+function services(
+  overrides: Partial<CliServices> = {},
+): CliServices {
+  return {
+    prepareImage: async () => preparedImage,
+    analyzeWithOpenCode: async () => ({
+      model: "opencode-go/vision",
+      report: { summary: "Looks good", issues: [] },
+    }),
+    doctor: async () => ({
+      opencode_version: "1.18.12",
+      connected_providers: ["opencode-go"],
+      image_models: ["opencode-go/vision"],
+      ok: true,
+    }),
+    ...overrides,
+  };
+}
+
+async function captureMain(
+  args: string[],
+  cliServices: CliServices,
+): Promise<CliResult> {
+  let stdout = "";
+  let stderr = "";
+  const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+    stdout += String(chunk);
+    return true;
+  });
+  const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    stderr += String(chunk);
+    return true;
+  });
+  try {
+    const exitCode = await main(args, cliServices);
+    return { exitCode, stdout, stderr };
+  } finally {
+    stdoutWrite.mockRestore();
+    stderrWrite.mockRestore();
+  }
 }
 
 describe("CLI argument parsing", () => {
@@ -106,5 +163,74 @@ describe("CLI process contract", () => {
       message: expect.any(String),
       next_action: expect.any(String),
     });
+  });
+
+  it("prints a structured human result and cleanup warning on separate streams", async () => {
+    const result = await captureMain(
+      ["analyze", "screen.png", "--model", "opencode-go/vision", "--allow-upload"],
+      services({
+        analyzeWithOpenCode: async () => ({
+          model: "opencode-go/vision",
+          report: { summary: "Looks good", issues: [] },
+          session_id: "retained-session",
+          warnings: [{
+            code: "SESSION_CLEANUP_FAILED",
+            message: "Temporary session remains.",
+          }],
+        }),
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("Summary: Looks good\nIssues: none\n");
+    expect(result.stderr).toContain("Warning [SESSION_CLEANUP_FAILED]");
+    expect(result.stderr).toContain("Session: retained-session.");
+  });
+
+  it("preserves custom provider text and adds only the CLI line terminator", async () => {
+    const result = await captureMain(
+      [
+        "analyze",
+        "screen.png",
+        "--model",
+        "opencode/vision",
+        "--prompt",
+        "Read it.",
+        "--allow-upload",
+      ],
+      services({
+        analyzeWithOpenCode: async () => ({
+          model: "opencode/vision",
+          text: "  exact provider text  ",
+        }),
+      }),
+    );
+
+    expect(result).toEqual({
+      exitCode: 0,
+      stdout: "  exact provider text  \n",
+      stderr: "",
+    });
+  });
+
+  it("returns exit code 1 for a completed but unhealthy doctor check", async () => {
+    const result = await captureMain(
+      ["doctor", "--json"],
+      services({
+        doctor: async (_directory, signal) => {
+          expect(signal).toBeInstanceOf(AbortSignal);
+          return {
+            opencode_version: "1.18.12",
+            connected_providers: [],
+            image_models: [],
+            ok: false,
+          };
+        },
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({ ok: false });
+    expect(result.stderr).toBe("");
   });
 });

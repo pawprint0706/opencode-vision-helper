@@ -24,6 +24,18 @@ type ParsedAnalyze = {
   timeoutMs: number;
 };
 
+export type CliServices = {
+  prepareImage: typeof prepareImage;
+  analyzeWithOpenCode: typeof analyzeWithOpenCode;
+  doctor: typeof doctor;
+};
+
+const DEFAULT_SERVICES: CliServices = {
+  prepareImage,
+  analyzeWithOpenCode,
+  doctor,
+};
+
 const HELP = `opencode-vision-helper
 
 Usage:
@@ -98,7 +110,7 @@ function printJson(
   stream.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
-async function runAnalyze(args: string[]): Promise<number> {
+async function runAnalyze(args: string[], services: CliServices): Promise<number> {
   const parsed = parseAnalyzeArgs(args);
   if (!parsed.allowUpload) {
     throw new AppError(
@@ -110,7 +122,7 @@ async function runAnalyze(args: string[]): Promise<number> {
   if (!model) {
     throw new AppError("CONFIGURATION", "No vision model was selected.");
   }
-  const image = await prepareImage(parsed.image);
+  const image = await services.prepareImage(parsed.image);
   const structured = parsed.prompt === undefined;
   const interrupt = new AbortController();
   const onInterrupt = () => {
@@ -120,7 +132,7 @@ async function runAnalyze(args: string[]): Promise<number> {
   const abortScope = createAbortScope(parsed.timeoutMs, interrupt.signal);
   let result;
   try {
-    result = await analyzeWithOpenCode({
+    result = await services.analyzeWithOpenCode({
       directory: process.cwd(),
       image,
       model,
@@ -148,27 +160,47 @@ async function runAnalyze(args: string[]): Promise<number> {
   return 0;
 }
 
-async function runDoctor(args: string[]): Promise<number> {
+async function runDoctor(args: string[], services: CliServices): Promise<number> {
   const unknown = args.filter((arg) => arg !== "--json");
   if (unknown.length > 0) {
     throw new AppError("BAD_REQUEST", `Unknown option: ${unknown[0]}`);
   }
-  const result = await doctor(resolve(process.cwd()));
-  printJson(result);
-  return result.ok ? 0 : 1;
+  const interrupt = new AbortController();
+  const onInterrupt = () => {
+    interrupt.abort(
+      new AppError("ANALYSIS_ABORTED", "OpenCode doctor check was canceled by SIGINT."),
+    );
+  };
+  process.once("SIGINT", onInterrupt);
+  const abortScope = createAbortScope(
+    DEFAULT_ANALYSIS_TIMEOUT_MS,
+    interrupt.signal,
+    "OpenCode doctor check",
+  );
+  try {
+    const result = await services.doctor(resolve(process.cwd()), abortScope.signal);
+    printJson(result);
+    return result.ok ? 0 : 1;
+  } finally {
+    abortScope.dispose();
+    process.removeListener("SIGINT", onInterrupt);
+  }
 }
 
-export async function main(args = process.argv.slice(2)): Promise<number> {
+export async function main(
+  args = process.argv.slice(2),
+  services: CliServices = DEFAULT_SERVICES,
+): Promise<number> {
   const command = args[0];
   if (!command || command === "--help" || command === "-h") {
     process.stdout.write(HELP);
     return 0;
   }
   if (command === "analyze") {
-    return runAnalyze(args.slice(1));
+    return runAnalyze(args.slice(1), services);
   }
   if (command === "doctor") {
-    return runDoctor(args.slice(1));
+    return runDoctor(args.slice(1), services);
   }
   throw new AppError("BAD_REQUEST", `Unknown command: ${command}`);
 }

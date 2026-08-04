@@ -12,6 +12,7 @@ export type AbortScope = {
 export function createAbortScope(
   timeoutMs = DEFAULT_ANALYSIS_TIMEOUT_MS,
   parent?: AbortSignal,
+  operation = "Image analysis",
 ): AbortScope {
   if (
     !Number.isInteger(timeoutMs) ||
@@ -29,7 +30,7 @@ export function createAbortScope(
     controller.abort(
       parent?.reason instanceof AppError
         ? parent.reason
-        : new AppError("ANALYSIS_ABORTED", "Image analysis was canceled."),
+        : new AppError("ANALYSIS_ABORTED", `${operation} was canceled.`),
     );
   };
   if (parent?.aborted) {
@@ -42,7 +43,7 @@ export function createAbortScope(
     controller.abort(
       new AppError(
         "ANALYSIS_TIMEOUT",
-        `Image analysis exceeded the ${timeoutMs} millisecond timeout.`,
+        `${operation} exceeded the ${timeoutMs} millisecond timeout.`,
       ),
     );
   }, timeoutMs);
