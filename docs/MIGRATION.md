@@ -62,8 +62,9 @@ configuration, model metadata, and model-specific wire protocols.
    clean temporary consumer and its plugin export and adapter lifecycle are verified.
 6. **Complete for local-only v1:** the packaged CLI is validated end-to-end against a local fake
    OpenCode executable, and live Go/Zen CLI plus TUI and Desktop validation has
-   passed. The remote three-OS CI result, public distribution, and source-repository
-   policy are outside the current local-only release boundary and remain deferred.
+   passed. The remote Windows/macOS/Linux matrix also passes on Node.js 20 and 24.
+   The source repository is public, while public package distribution remains outside
+   the current local-only release boundary and is separately deferred.
 
 CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and

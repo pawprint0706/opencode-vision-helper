@@ -41,8 +41,8 @@ or upload an image.
 | Windows, macOS, and Linux automation definition | `.github/workflows/ci.yml` |
 
 The workflow matrix is configured for all three operating systems with Node.js 20
-and 24. A successful remote CI run is still required as release evidence; the
-`origin` remote is configured, so a push can trigger and expose that run.
+and 24. The matrix passed for commit `44e9114` in
+[CI run 30934005206](https://github.com/pawprint0706/opencode-vision-helper/actions/runs/30934005206).
 
 ## Live validation record
 
@@ -167,14 +167,20 @@ to the cache when the network is unavailable. After the change,
 `npm run verify` completed on macOS: Biome, strict TypeScript, 102 Vitest tests,
 the package build, and the packed-artifact install/lifecycle checks all passed.
 
+## OpenCode SDK baseline
+
+The exact `@opencode-ai/plugin` and `@opencode-ai/sdk` runtime dependencies were
+updated together from 1.18.12 to 1.18.13 on 2026-08-05. The strict library and
+adapter type checks, 102 Vitest tests, build, and packed-artifact consumer and
+adapter-lifecycle checks pass with that baseline. This is a dependency compatibility
+check and does not repeat the already completed live model calls.
+
 ## Deferred validation
 
-No required check remains for the `ask`-based local-only v1. The following checks
-remain intentionally deferred:
-
-1. Optionally verify an intentional persistent `allow` policy in a dedicated trusted test
-   project; `ask` remains the recommended default.
-2. Observe a green Windows/macOS/Linux CI matrix for the release candidate.
+No required check remains for the `ask`-based local-only v1. An intentional
+persistent `allow` policy could optionally be exercised in a dedicated trusted test
+project, but the headless temporary-project path has already exercised `allow`, and
+`ask` remains the recommended default. This is not a release requirement.
 
 Live checks can transmit images, incur provider cost, inspect provider connection
 state through OpenCode, or change OpenCode project configuration. Current work is
@@ -184,10 +190,10 @@ into this project or recorded in validation output.
 
 ## Distribution decision
 
-The current distribution is local-only, and the package remains `private` and
-unpublished. Before a later external release, choose private-registry, public npm,
-or another artifact channel; then add the corresponding repository metadata,
-version/provenance policy, and published-artifact smoke test. The original
-`orca-vision-helper` maintenance/archive/deprecation decision is separate and must
-not remove an existing installation or credential without its own explicit
-approval.
+The GitHub source repository is public, while distribution remains local-only and
+the package remains `private` and unpublished. Before a later external release,
+choose private-registry, public npm, or another artifact channel; then add the
+corresponding package metadata, version/provenance policy, and published-artifact
+smoke test. The original `orca-vision-helper` maintenance/archive/deprecation
+decision is separate and must not remove an existing installation or credential
+without its own explicit approval.
