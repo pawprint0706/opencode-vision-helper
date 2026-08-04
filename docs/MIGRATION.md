@@ -27,13 +27,14 @@ configuration, model metadata, and model-specific wire protocols.
 
 ## Migration phases
 
-1. **In progress:** validate SDK image/file input and structured output against
-   live Go and Zen without reading credentials directly. Offline SDK contract
-   construction, cancellation plumbing, and tool-free sessions are complete.
+1. **Complete:** SDK image input and structured output were validated against live
+   OpenCode Go and Zen with a generated non-sensitive fixture, without reading
+   credentials directly. Offline SDK contracts, cancellation, and tool-free sessions
+   remain in the default suite.
 2. **Complete:** port image limits, resizing, report schema, trust instruction,
    and stable error output.
-3. **Complete offline:** implement `analyze` and `doctor`; live account smoke
-   testing remains intentionally pending.
+3. **Complete:** implement `analyze` and `doctor`; both provider identities passed
+   the guarded live CLI smoke test.
 4. **Complete offline:** the `vision_analyze` plugin adapter reuses the current
    OpenCode server, resolves external paths through permission requests, and has
    `ask`/`deny` examples. It can resolve the current/parent message's sole local or

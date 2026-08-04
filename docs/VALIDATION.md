@@ -42,23 +42,33 @@ The workflow matrix is configured for all three operating systems with Node.js 2
 and 24. A successful remote CI run is still required as release evidence; this
 local repository currently has no configured remote from which to inspect one.
 
-## Explicitly authorized live validation
+## Live validation record
+
+On 2026-08-04, after explicit authorization, `doctor` confirmed OpenCode 1.18.12
+with both `opencode-go` and `opencode` connected. The guarded live-smoke script sent
+only its generated synthetic settings UI to:
+
+- `opencode-go/gpt-5.6-luna`: structured report succeeded and found the intentionally
+  clipped save button; observed cost `0.0006874`
+- `opencode/gpt-5.6-luna`: structured report succeeded and found the same issue;
+  observed cost `0.00135655`
+
+These model IDs, costs, and response times are observations from one run, not stable
+guarantees. The script deletes its temporary fixture and requires `--allow-live`,
+`--go-model`, and `--zen-model`; it is excluded from the default test gate.
+
+## Remaining explicitly authorized validation
 
 The following checks remain intentionally unexecuted:
 
-1. Run `doctor` against an existing OpenCode installation after confirming Go and
-   Zen were connected through `/connect`.
-2. Upload one approved, non-sensitive fixture to an image-capable `opencode-go/*`
-   model and one to an image-capable `opencode/*` model. Verify the structured and
-   custom-text paths without reading credentials directly.
-3. Install the adapter into an explicitly selected test project, merge only the
+1. Install the adapter into an explicitly selected test project, merge only the
    printed package and permission snippets, and restart OpenCode.
-4. From a vision-limited agent, verify `vision_analyze` with `ask`; separately
+2. From a vision-limited agent, verify `vision_analyze` with `ask`; separately
    verify intentional `allow` and a vision-capable agent's `deny` rule. Confirm the
    analysis session cannot call any tool, including `vision_analyze` recursively.
-5. In the actual TUI/desktop client, verify local, external-directory, and attached
+3. In the actual TUI/desktop client, verify local, external-directory, and attached
    image flows and their approval UI.
-6. Observe a green Windows/macOS/Linux CI matrix for the release candidate.
+4. Observe a green Windows/macOS/Linux CI matrix for the release candidate.
 
 These checks can transmit images, incur provider cost, inspect provider connection
 state through OpenCode, or change OpenCode project configuration. They require the

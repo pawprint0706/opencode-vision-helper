@@ -7,9 +7,9 @@ image-capable OpenCode Go or Zen model through the OpenCode SDK.
 ## Status
 
 The CLI and native `vision_analyze` plugin adapter are implemented and covered by
-offline tests. The package is not published, and the SDK request has not yet been
-validated against a live Go or Zen account; local packed-artifact installation is
-verified on every `npm run verify`.
+offline tests. A synthetic fixture has also been validated through the live OpenCode
+Go and Zen paths. The package is not published; local packed-artifact installation
+is verified on every `npm run verify`.
 
 The target flow is:
 
@@ -79,6 +79,15 @@ npm test
 npm run build
 npm run verify
 node .\dist\cli.js --help
+```
+
+Live smoke testing is opt-in and always requires the explicit guard plus one Go and
+one Zen model. It generates and deletes a synthetic fixture:
+
+```powershell
+npm run test:live -- --allow-live `
+  --go-model opencode-go/<model-id> `
+  --zen-model opencode/<model-id>
 ```
 
 After building, install the native adapter for the current project with:

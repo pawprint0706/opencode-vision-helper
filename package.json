@@ -37,6 +37,7 @@
     "adapter:uninstall": "node scripts/uninstall.mjs",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
+    "test:live": "npm run build && node scripts/live-smoke.mjs",
     "test:watch": "vitest",
     "verify:package": "node scripts/verify-package.mjs",
     "verify": "npm run check && npm test && npm run build && npm run verify:package"
