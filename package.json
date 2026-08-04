@@ -36,7 +36,8 @@
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "npm run check && npm test && npm run build"
+    "verify:package": "node scripts/verify-package.mjs",
+    "verify": "npm run check && npm test && npm run build && npm run verify:package"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.18.12",

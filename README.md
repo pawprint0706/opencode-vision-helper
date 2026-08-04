@@ -93,8 +93,10 @@ ownership behavior are documented in [docs/OPENCODE.md](docs/OPENCODE.md).
 Tests use a fake SDK client and do not read OpenCode credentials or send an
 image. OpenCode remains the sole owner of provider authentication.
 
-CI runs the same offline verification and package dry-run on Windows, macOS,
-and Linux with Node.js 20 and 24. Live provider tests are intentionally excluded.
+CI runs the same offline verification on Windows, macOS, and Linux with Node.js
+20 and 24. It packs the real artifact, installs it into a temporary consumer,
+imports the plugin export, and exercises install/uninstall without changing the
+consumer's config or auth sentinels. Live provider tests are intentionally excluded.
 
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the active migration plan.
 See [docs/OPENCODE.md](docs/OPENCODE.md) for adapter lifecycle and permission

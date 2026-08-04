@@ -37,6 +37,3 @@ jobs:
 
       - name: Run offline verification
         run: npm run verify
-
-      - name: Verify package contents
-        run: npm pack --dry-run
