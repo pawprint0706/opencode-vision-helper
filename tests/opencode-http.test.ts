@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { createOpencodeClient } from "@opencode-ai/sdk/v2";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { createAbortScope } from "../src/abort.js";
 import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
 import { analyzeWithClient, doctorWithClient } from "../src/opencode.js";
@@ -261,6 +262,47 @@ describe("OpenCode SDK HTTP boundary", () => {
     });
   });
 
+  it("preserves multi-part free-form text through the generated SDK", async () => {
+    const { client, requests } = await fakeServer((request) => {
+      if (request.path === "/provider") {
+        return { body: providerPayload() };
+      }
+      if (request.path === "/experimental/tool/ids") {
+        return { body: [] };
+      }
+      if (request.method === "POST" && request.path === "/session") {
+        return { body: { id: "session-text" } };
+      }
+      if (request.path === "/session/session-text/message") {
+        return {
+          body: {
+            info: { cost: 0.001 },
+            parts: [
+              { type: "text", text: "  first" },
+              { type: "reasoning", text: "ignored" },
+              { type: "text", text: "\nsecond  " },
+            ],
+          },
+        };
+      }
+      return { body: true };
+    });
+
+    await expect(
+      analyzeWithClient(client, {
+        directory: "D:\\workspace",
+        image,
+        model: "opencode-go/vision",
+        prompt: "Read it.",
+        structured: false,
+        uploadApproved: true,
+      }),
+    ).resolves.toMatchObject({ text: "  first\nsecond  " });
+    expect(requests.find((request) => request.path.endsWith("/message"))?.body).toMatchObject({
+      format: { type: "text" },
+    });
+  });
+
   it("sanitizes an HTTP prompt failure before aborting and deleting the session", async () => {
     const { client, requests } = await fakeServer((request) => {
       if (request.path === "/provider") {
@@ -414,5 +456,28 @@ describe("OpenCode SDK HTTP boundary", () => {
       code: "ANALYSIS_ABORTED",
       message: "Canceled by test.",
     });
+  });
+
+  it("applies the bounded timeout to an in-flight SDK request", async () => {
+    const scope = createAbortScope(1_000);
+    const { client } = await fakeServer(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_100));
+      return { body: providerPayload() };
+    });
+    try {
+      await expect(
+        analyzeWithClient(client, {
+          directory: "D:\\workspace",
+          image,
+          model: "opencode-go/vision",
+          prompt: "Inspect the UI.",
+          structured: true,
+          uploadApproved: true,
+          signal: scope.signal,
+        }),
+      ).rejects.toMatchObject({ code: "ANALYSIS_TIMEOUT", retryable: true });
+    } finally {
+      scope.dispose();
+    }
   });
 });
