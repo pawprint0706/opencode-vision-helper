@@ -24,12 +24,15 @@
   "files": [
     "dist",
     "opencode",
+    "scripts",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.opencode.json --noEmit",
+    "adapter:install": "node scripts/install.mjs",
+    "adapter:uninstall": "node scripts/uninstall.mjs",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest"

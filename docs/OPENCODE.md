@@ -4,10 +4,10 @@ The optional OpenCode adapter exposes one tool named `vision_analyze`. It uses
 the SDK client for the OpenCode server that loaded the plugin, so authentication,
 provider configuration, and model routing remain owned by OpenCode.
 
-The adapter is implemented but not installed automatically. The package is still
-private and no ownership-safe installer is available yet.
+The adapter and ownership-safe lifecycle commands are implemented. The package is
+still private, so release-package installation has not been validated yet.
 
-## Development registration
+## Adapter installation
 
 Build this repository first:
 
@@ -15,9 +15,31 @@ Build this repository first:
 npm run build
 ```
 
-In the OpenCode configuration directory for the project that will use the tool,
-merge a local package dependency into `.opencode/package.json`. Replace the path
-with the absolute path to this checkout:
+Install the adapter for the current project or the global OpenCode configuration:
+
+```powershell
+npm run adapter:install -- --scope project
+npm run adapter:install -- --scope global
+```
+
+`project` targets `<current-directory>/.opencode`. `global` uses the documented
+`~/.config/opencode` location. Use `--target <absolute-directory>` for a custom
+configuration root. The current private development package defaults to a `file:`
+dependency on this checkout; override the printed dependency with
+`--package-spec <npm-version-or-file-spec>` when appropriate.
+
+The installer creates only:
+
+- `plugins/vision-helper.ts`
+- `.opencode-vision-helper-install.json`
+
+It refuses an existing unowned plugin, validates the exact content hash on repeat
+installs, and rolls back a plugin created by the current run if manifest creation
+fails. It does not edit OpenCode configuration, package configuration, credentials,
+agents, or other plugins.
+
+Merge the package snippet printed by the installer into `.opencode/package.json`.
+For a checkout at `D:/DEV/PP/opencode-vision-helper`, it is equivalent to:
 
 ```json
 {
@@ -27,20 +49,12 @@ with the absolute path to this checkout:
 }
 ```
 
-Then merge the plugin and model selection into that project's `opencode.json`:
+The installed wrapper is discovered automatically, so merge only its permission
+into that project's `opencode.json`:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    [
-      "opencode-vision-helper/plugin",
-      {
-        "model": "opencode-go/<image-capable-model-id>",
-        "timeoutMs": 120000
-      }
-    ]
-  ],
   "permission": {
     "vision_analyze": "ask"
   }
@@ -48,11 +62,31 @@ Then merge the plugin and model selection into that project's `opencode.json`:
 ```
 
 Do not replace an existing `opencode.json` or `.opencode/package.json`; merge only
-the new dependency, plugin entry, and permission key. OpenCode installs dependencies
-from `.opencode/package.json` when it starts. Restart OpenCode after changing plugin
-registration.
+the printed dependency and permission key. OpenCode installs dependencies from
+`.opencode/package.json` when it starts. Restart OpenCode after installing the
+wrapper or changing dependencies.
 
-The model may instead be supplied on each tool call or through
+The wrapper uses `OPENCODE_VISION_MODEL` unless the caller supplies `model`. As an
+alternative to installing the wrapper, package-only registration can add
+`["opencode-vision-helper/plugin", { "model": "opencode-go/<id>",
+"timeoutMs": 120000 }]` to the existing `plugin` array. Do not use both registration
+methods in the same configuration.
+
+## Adapter removal
+
+```powershell
+npm run adapter:uninstall -- --scope project
+npm run adapter:uninstall -- --scope global
+```
+
+Removal requires the ownership manifest and an exact current hash match. If the
+plugin was edited, removal stops without deleting either file. It never removes
+package dependencies, permissions, agents, OpenCode configuration, or credentials;
+remove previously merged snippets manually after reviewing unrelated settings.
+If the owned plugin was already deleted, the uninstaller can remove the validated
+stale manifest without touching anything else.
+
+The model may be supplied on each tool call or through
 `OPENCODE_VISION_MODEL`. Only `opencode-go/*` and `opencode/*` models whose input
 capabilities include images are accepted.
 

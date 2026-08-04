@@ -67,12 +67,24 @@ npm run build
 node .\dist\cli.js --help
 ```
 
+After building, install the native adapter for the current project with:
+
+```powershell
+npm run adapter:install -- --scope project
+```
+
+The installer writes only its plugin wrapper and ownership manifest. It prints
+mergeable package and permission snippets and never edits `opencode.json`,
+`.opencode/package.json`, or OpenCode authentication. Remove the owned adapter
+files with `npm run adapter:uninstall -- --scope project`. Global scope and exact
+ownership behavior are documented in [docs/OPENCODE.md](docs/OPENCODE.md).
+
 Tests use a fake SDK client and do not read OpenCode credentials or send an
 image. OpenCode remains the sole owner of provider authentication.
 
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the active migration plan.
-See [docs/OPENCODE.md](docs/OPENCODE.md) for manual development registration and
-permission examples for the native tool.
+See [docs/OPENCODE.md](docs/OPENCODE.md) for adapter lifecycle and permission
+examples for the native tool.
 
 ## Provenance
 
