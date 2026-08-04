@@ -48,9 +48,13 @@ const provider = {
 
 const hostname = option("hostname", "127.0.0.1");
 const port = Number(option("port", "4096"));
-const server = createServer((request, response) => {
+const delayMs = Number(process.env.FAKE_OPENCODE_DELAY_MS ?? "0");
+const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${hostname}:${port}`);
   if (request.method === "GET" && url.pathname === "/provider") {
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
     send(response, { all: [provider], default: {}, connected: ["opencode-go"] });
     return;
   }

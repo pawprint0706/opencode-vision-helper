@@ -27,6 +27,15 @@ async function runNpm(args, options = {}) {
     : run(npmCommand, args, options);
 }
 
+async function failedNpm(args, options = {}) {
+  try {
+    await runNpm(args, options);
+  } catch (error) {
+    return error;
+  }
+  throw new Error("Expected npm command to fail.");
+}
+
 try {
   const packed = await runNpm(["pack", "--json", "--pack-destination", temporaryRoot], {
     cwd: packageRoot,
@@ -104,6 +113,30 @@ try {
     cost: 0.003,
     report: { summary: "Packaged CLI result", issues: [] },
   });
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const timedOut = await failedNpm(
+    [
+      "exec",
+      "--offline",
+      "--",
+      "opencode-vision-helper",
+      "analyze",
+      imagePath,
+      "--model",
+      "opencode-go/vision",
+      "--allow-upload",
+      "--timeout",
+      "1",
+    ],
+    {
+      cwd: consumer,
+      env: { ...fakeEnvironment, FAKE_OPENCODE_DELAY_MS: "1100" },
+    },
+  );
+  assert.equal(timedOut.code, 1);
+  assert.equal(timedOut.stdout, "");
+  assert.match(timedOut.stderr, /"error_code": "ANALYSIS_TIMEOUT"/);
 
   await run(
     process.execPath,
