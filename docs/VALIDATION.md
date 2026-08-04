@@ -80,14 +80,31 @@ Only the generated synthetic image was sent. The temporary project package/confi
 OpenCode-installed dependencies, and persistent fixture were removed after the
 test; no credential file was read or changed.
 
+OpenCode Desktop 1.18.13 was then validated with the same synthetic fixture after
+an explicit local `npm install --prefix .opencode` and restart. Its native file
+picker displayed and attached the PNG. An explicit external path produced separate
+`external_directory` and `vision_analyze` one-time permission prompts before the
+native tool found the clipped button. In a fresh session, omitting the tool's
+`image` argument resolved the sole GUI message attachment, requested only the
+`vision_analyze` permission, and returned the same finding. The initial pre-install
+attempt did not expose the native tool, which is why deterministic dependency
+installation is now an explicit documented step.
+
+A guarded native automation prototype was also exercised with `opencode run` in an
+isolated project. On OpenCode CLI 1.18.12 it repeatedly stalled after the logged
+`init` stage before any model call or stdout, including after explicit dependency
+installation, same-volume placement, and Git initialization. Every attempt timed
+out and removed its project successfully. The unreliable prototype is not shipped;
+the successful TUI and Desktop checks above remain the native live evidence until
+OpenCode's non-interactive plugin path can be reproduced reliably.
+
 ## Remaining local validation
 
 The following checks remain intentionally unexecuted:
 
-1. In the graphical desktop client, verify its attachment picker and permission UI.
-2. Optionally verify an intentional persistent `allow` policy in a dedicated trusted test
+1. Optionally verify an intentional persistent `allow` policy in a dedicated trusted test
    project; `ask` remains the recommended default.
-3. Observe a green Windows/macOS/Linux CI matrix for the release candidate.
+2. Observe a green Windows/macOS/Linux CI matrix for the release candidate.
 
 Live checks can transmit images, incur provider cost, inspect provider connection
 state through OpenCode, or change OpenCode project configuration. Current work is

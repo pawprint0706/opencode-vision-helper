@@ -9,9 +9,9 @@ image-capable OpenCode Go or Zen model through the OpenCode SDK.
 The CLI and native `vision_analyze` plugin adapter are implemented and covered by
 offline tests. A synthetic fixture has also been validated through the live OpenCode
 Go and Zen paths, through the installed native tool in the OpenCode TUI for local
-and external paths, and through OpenCode's real message-file attachment path. The
-package is not published; local packed-artifact installation is verified on every
-`npm run verify`.
+and external paths, through OpenCode's real message-file attachment path, and in the
+OpenCode Desktop file picker and permission UI. The package is not published; local
+packed-artifact installation is verified on every `npm run verify`.
 
 The target flow is:
 
@@ -102,9 +102,11 @@ npm run adapter:install -- --scope project
 
 The installer writes only its plugin wrapper and ownership manifest. It prints
 mergeable package and permission snippets and never edits `opencode.json`,
-`.opencode/package.json`, or OpenCode authentication. Remove the owned adapter
-files with `npm run adapter:uninstall -- --scope project`. Global scope and exact
-ownership behavior are documented in [docs/OPENCODE.md](docs/OPENCODE.md).
+`.opencode/package.json`, or OpenCode authentication. After merging the dependency,
+run the exact `npm install --prefix ...` command printed by the installer and restart
+OpenCode. Remove the owned adapter files with
+`npm run adapter:uninstall -- --scope project`. Global scope and exact ownership
+behavior are documented in [docs/OPENCODE.md](docs/OPENCODE.md).
 
 Tests use both focused fake clients and the generated SDK against a local fake
 OpenCode server. They do not read OpenCode credentials or send an image to an

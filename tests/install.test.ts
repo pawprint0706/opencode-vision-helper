@@ -309,6 +309,19 @@ describe("ownership-safe adapter lifecycle", () => {
     expect(JSON.parse(uninstalled.stdout)).toMatchObject({ status: "uninstalled" });
   });
 
+  it("prints the exact dependency installation root in human output", async () => {
+    const target = join(temporaryRoot, "target with spaces");
+    const installed = await execFileAsync(
+      process.execPath,
+      [resolve("scripts/install.mjs"), "--target", target],
+      { cwd: packageRoot },
+    );
+
+    expect(installed.stdout).toContain(
+      `npm install --prefix ${JSON.stringify(resolve(target))} --no-audit --no-fund`,
+    );
+  });
+
   it("reports command ownership conflicts on stderr with exit code 1", async () => {
     const target = join(temporaryRoot, ".opencode");
     const pluginPath = join(target, PLUGIN_RELATIVE_PATH);

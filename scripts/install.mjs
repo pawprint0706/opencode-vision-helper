@@ -37,6 +37,10 @@ try {
     process.stdout.write(`Merge the permission into: ${result.mergeTargets.configPath}\n`);
     process.stdout.write("Merge these snippets; existing config files were not modified:\n");
     process.stdout.write(`${JSON.stringify(result.snippets, null, 2)}\n`);
+    process.stdout.write(
+      `After merging the package dependency, install it before restarting OpenCode:\n` +
+        `npm install --prefix ${JSON.stringify(result.target)} --no-audit --no-fund\n`,
+    );
   }
 } catch (error) {
   const code = error instanceof InstallError ? error.code : "UNKNOWN";

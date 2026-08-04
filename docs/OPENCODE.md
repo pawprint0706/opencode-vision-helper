@@ -72,9 +72,16 @@ into the printed config target:
 ```
 
 Do not replace an existing `opencode.json` or `.opencode/package.json`; merge only
-the printed dependency and permission key. OpenCode installs dependencies from
-`.opencode/package.json` when it starts. Restart OpenCode after installing the
-wrapper or changing dependencies.
+the printed dependency and permission key. Then run the exact dependency command
+printed by the installer, for example:
+
+```powershell
+npm install --prefix .opencode --no-audit --no-fund
+```
+
+This explicit step makes plugin loading deterministic across the CLI, TUI, and
+Desktop clients. Restart OpenCode after installing the wrapper or changing
+dependencies.
 
 ## Adapter upgrade
 

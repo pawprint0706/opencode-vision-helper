@@ -35,21 +35,23 @@ configuration, model metadata, and model-specific wire protocols.
    and stable error output.
 3. **Complete:** implement `analyze` and `doctor`; both provider identities passed
    the guarded live CLI smoke test.
-4. **Complete for local-path TUI:** the `vision_analyze` plugin adapter reuses the
+4. **Complete for TUI and Desktop:** the `vision_analyze` plugin adapter reuses the
    authenticated client supplied by the current OpenCode server, requests upload
    permission before analysis, and resolves external paths through a separate
    permission request. A live TUI run verified the `ask` prompt, one-time approval,
    successful analysis, tool-free child session, and `deny` removal. The external
    path's two permission prompts and OpenCode's real message-file attachment path
-   are also live-verified. Graphical desktop attachment validation remains pending.
+   are also live-verified. OpenCode Desktop 1.18.13 additionally verified the native
+   file picker, external-path and upload permission prompts, explicit-path analysis,
+   and attachment resolution with the tool's `image` argument omitted.
 5. **Complete offline:** cross-platform Node install/uninstall commands use exact
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an
    offline temporary consumer and its plugin export and adapter lifecycle are verified.
 6. **In progress:** the packaged CLI is validated end-to-end against a local fake
-   OpenCode executable, and live Go/Zen CLI plus local-path TUI validation has
-   passed. Graphical desktop validation, the remote three-OS CI result, public
-   distribution, and source-repository policy remain deferred or pending.
+   OpenCode executable, and live Go/Zen CLI plus TUI and Desktop validation has
+   passed. The remote three-OS CI result, public distribution, and source-repository
+   policy remain deferred or pending.
 
 Offline CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and
