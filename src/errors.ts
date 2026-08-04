@@ -74,6 +74,38 @@ export function asAppError(error: unknown): AppError {
   return new AppError("UNKNOWN", "Unexpected internal error.", { cause: error });
 }
 
+type NamedOpenCodeError = {
+  name: string;
+  data?: unknown;
+};
+
+function namedOpenCodeError(error: unknown): NamedOpenCodeError | undefined {
+  const candidates: unknown[] = [];
+  if (
+    error instanceof Error &&
+    error.cause &&
+    typeof error.cause === "object" &&
+    "body" in error.cause
+  ) {
+    candidates.push(error.cause.body);
+  }
+  candidates.push(error);
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      "name" in candidate &&
+      typeof candidate.name === "string"
+    ) {
+      return {
+        name: candidate.name,
+        data: "data" in candidate ? candidate.data : undefined,
+      };
+    }
+  }
+  return undefined;
+}
+
 export function mapOpenCodeError(
   error: unknown,
   fallback: "OPENCODE_UNAVAILABLE" | "PROVIDER_ERROR",
@@ -90,8 +122,9 @@ export function mapOpenCodeError(
   if (error instanceof Error && error.name === "AbortError") {
     return new AppError("ANALYSIS_ABORTED", "Image analysis was canceled.", { cause: error });
   }
-  if (error && typeof error === "object" && "name" in error) {
-    const name = error.name;
+  const named = namedOpenCodeError(error);
+  if (named) {
+    const { name } = named;
     if (name === "ProviderAuthError") {
       return new AppError(
         "PROVIDER_NOT_CONNECTED",
@@ -112,8 +145,8 @@ export function mapOpenCodeError(
       });
     }
     if (name === "APIError") {
-      const data = "data" in error && error.data && typeof error.data === "object"
-        ? error.data
+      const data = named.data && typeof named.data === "object"
+        ? named.data
         : undefined;
       const retryable = Boolean(
         data && "isRetryable" in data && data.isRetryable,
