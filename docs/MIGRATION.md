@@ -47,8 +47,9 @@ configuration, model metadata, and model-specific wire protocols.
 
 Offline CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and
-contract tests, builds the package, and verifies `npm pack --dry-run` without
-starting OpenCode or contacting a provider.
+contract tests, runs Biome formatting/lint checks, builds the package, and installs
+the real packed artifact into an offline temporary consumer without starting
+OpenCode or contacting a provider.
 
 ## Current safety notes
 

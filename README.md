@@ -7,8 +7,9 @@ image-capable OpenCode Go or Zen model through the OpenCode SDK.
 ## Status
 
 The CLI and native `vision_analyze` plugin adapter are implemented and covered by
-offline tests. No installer is published, and the SDK request has not yet been
-validated against a live Go or Zen account.
+offline tests. The package is not published, and the SDK request has not yet been
+validated against a live Go or Zen account; local packed-artifact installation is
+verified on every `npm run verify`.
 
 The target flow is:
 

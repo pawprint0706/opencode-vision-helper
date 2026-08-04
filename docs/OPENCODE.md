@@ -5,7 +5,13 @@ the SDK client for the OpenCode server that loaded the plugin, so authentication
 provider configuration, and model routing remain owned by OpenCode.
 
 The adapter and ownership-safe lifecycle commands are implemented. The package is
-still private, so release-package installation has not been validated yet.
+still private and unpublished, but installation from the packed artifact is covered
+by the offline verification suite.
+
+Before using either the CLI or native tool, connect OpenCode Go or Zen through
+OpenCode's `/connect` flow and choose an image-capable `opencode-go/*` or
+`opencode/*` model. This helper never reads, imports, copies, or changes the
+resulting credentials.
 
 ## Adapter installation
 
@@ -65,6 +71,21 @@ Do not replace an existing `opencode.json` or `.opencode/package.json`; merge on
 the printed dependency and permission key. OpenCode installs dependencies from
 `.opencode/package.json` when it starts. Restart OpenCode after installing the
 wrapper or changing dependencies.
+
+## Coexistence with orca-vision-helper
+
+The original `orca-vision-helper` can remain installed during migration because it
+uses a different command and configuration directory. This installer does not
+inspect or alter that installation, its keyring entries, its configuration, or any
+agent instructions it previously added.
+
+Avoid routing the same analysis through both helpers: doing so can upload an image
+twice and incur duplicate model cost. After validating `vision_analyze`, remove or
+disable old `orca-vision-helper` agent instructions so agents have one preferred
+path. Uninstalling the old package, deleting its configuration, or removing its
+credentials is a separate operation that requires explicit approval and must follow
+that project's ownership-aware removal instructions. No old provider credential is
+migrated; connect Go or Zen in OpenCode with `/connect` instead.
 
 The wrapper uses `OPENCODE_VISION_MODEL` unless the caller supplies `model`. As an
 alternative to installing the wrapper, package-only registration can add
