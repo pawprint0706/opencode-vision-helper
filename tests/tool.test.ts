@@ -8,7 +8,7 @@ import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
 import { VisionHelperPlugin } from "../src/plugin.js";
 import { adaptPluginClient } from "../src/plugin-client.js";
-import { createVisionAnalyzeTool } from "../src/tool.js";
+import { createVisionAnalyzeTool, type VisionToolDependencies } from "../src/tool.js";
 
 const image: PreparedImage = {
   path: resolve("project", "screen.png"),
@@ -34,6 +34,50 @@ function context(directory: string, worktree = directory, abort = new AbortContr
     metadata,
   };
   return { ask, metadata, value };
+}
+
+function dependencies(
+  overrides: Partial<VisionToolDependencies> = {},
+): Partial<VisionToolDependencies> {
+  return {
+    validateCaller: async () => ({ providerID: "opencode-go", modelID: "text-only" }),
+    ...overrides,
+  };
+}
+
+function callerClient(imageInput: boolean) {
+  const message = vi.fn(async () => ({
+    data: {
+      info: {
+        role: "assistant",
+        parentID: "user-message",
+        providerID: "opencode-go",
+        modelID: "caller-model",
+      },
+      parts: [],
+    },
+  }));
+  const list = vi.fn(async () => ({
+    data: {
+      connected: ["opencode-go"],
+      all: [
+        {
+          id: "opencode-go",
+          models: {
+            "caller-model": {
+              id: "caller-model",
+              capabilities: { input: { image: imageInput } },
+            },
+          },
+        },
+      ],
+    },
+  }));
+  return {
+    client: { session: { message }, provider: { list } } as unknown as OpencodeClient,
+    list,
+    message,
+  };
 }
 
 afterEach(() => {
@@ -120,6 +164,54 @@ describe("vision_analyze native tool", () => {
     });
   });
 
+  it("runs for a caller whose OpenCode metadata explicitly disables image input", async () => {
+    const directory = resolve("project");
+    const caller = callerClient(false);
+    const definition = createVisionAnalyzeTool(
+      caller.client,
+      {
+        canonicalize: async (path) => resolve(path),
+        prepareImage: async () => image,
+        analyze: async () => ({ model: "opencode-go/vision", text: "fallback result" }),
+      },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    await expect(
+      definition.execute({ image: "screen.png" }, context(directory).value),
+    ).resolves.toMatchObject({ output: "fallback result" });
+    expect(caller.message).toHaveBeenCalledOnce();
+    expect(caller.list).toHaveBeenCalledOnce();
+  });
+
+  it("refuses a vision-capable caller before reading or uploading the image", async () => {
+    const directory = resolve("project");
+    const caller = callerClient(true);
+    const toolContext = context(directory);
+    const canonicalize = vi.fn();
+    const prepare = vi.fn();
+    const analyze = vi.fn();
+    const definition = createVisionAnalyzeTool(
+      caller.client,
+      { canonicalize, prepareImage: prepare, analyze },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    const result = await definition.execute({ image: "screen.png" }, toolContext.value);
+
+    expect(JSON.parse(result as string)).toMatchObject({
+      status: "error",
+      error_code: "CALLER_VISION_CAPABLE",
+      retryable: false,
+      message: expect.stringContaining("Analyze the image directly"),
+      next_action: "Analyze the image directly with the calling model.",
+    });
+    expect(canonicalize).not.toHaveBeenCalled();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(toolContext.ask).not.toHaveBeenCalled();
+  });
+
   it("uses the approved core and returns a formatted report", async () => {
     const directory = resolve("project");
     const toolContext = context(directory);
@@ -130,11 +222,11 @@ describe("vision_analyze native tool", () => {
     }));
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      {
+      dependencies({
         canonicalize: async (path) => resolve(path),
         prepareImage: async () => image,
         analyze,
-      },
+      }),
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -170,7 +262,7 @@ describe("vision_analyze native tool", () => {
     const directory = resolve("project");
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      {
+      dependencies({
         canonicalize: async (path) => resolve(path),
         prepareImage: async () => image,
         analyze: async () => ({
@@ -184,7 +276,7 @@ describe("vision_analyze native tool", () => {
             },
           ],
         }),
-      },
+      }),
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -209,12 +301,15 @@ describe("vision_analyze native tool", () => {
     const directory = resolve("project");
     const external = resolve("outside", "screen.png");
     const toolContext = context(directory);
-    const definition = createVisionAnalyzeTool({} as OpencodeClient, {
-      canonicalize: async (path) =>
-        path === resolve(directory, "link.png") ? external : resolve(path),
-      prepareImage: async () => image,
-      analyze: async () => ({ model: "opencode/vision", text: "  exact text  " }),
-    });
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      dependencies({
+        canonicalize: async (path) =>
+          path === resolve(directory, "link.png") ? external : resolve(path),
+        prepareImage: async () => image,
+        analyze: async () => ({ model: "opencode/vision", text: "  exact text  " }),
+      }),
+    );
 
     await expect(
       definition.execute(
@@ -247,11 +342,11 @@ describe("vision_analyze native tool", () => {
     const toolContext = context(directory);
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      {
+      dependencies({
         canonicalize: async (path) => resolve(path),
         prepareImage: async () => image,
         analyze: async () => ({ model: "opencode-go/vision", text: "result" }),
-      },
+      }),
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -270,11 +365,11 @@ describe("vision_analyze native tool", () => {
     const analyze = vi.fn();
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      {
+      dependencies({
         canonicalize: async (path) => resolve(path),
         prepareImage: async () => image,
         analyze,
-      },
+      }),
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -322,12 +417,12 @@ describe("vision_analyze native tool", () => {
     const analyze = vi.fn();
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      {
+      dependencies({
         canonicalize: async (path) =>
           path === resolve(directory, "link.png") ? external : resolve(path),
         prepareImage,
         analyze,
-      },
+      }),
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -355,11 +450,11 @@ describe("vision_analyze native tool", () => {
     const analyze = vi.fn();
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      {
+      dependencies({
         canonicalize: async (path) => resolve(path),
         prepareImage: async () => image,
         analyze,
-      },
+      }),
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -384,11 +479,11 @@ describe("vision_analyze native tool", () => {
     const analyze = vi.fn();
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      {
+      dependencies({
         canonicalize: async (path) => resolve(path),
         prepareImage: async () => image,
         analyze,
-      },
+      }),
       { defaultModel: "opencode-go/vision", timeoutMs: 1_000 },
     );
 
@@ -411,7 +506,7 @@ describe("vision_analyze native tool", () => {
     const prepareImage = vi.fn();
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      { canonicalize, prepareImage },
+      dependencies({ canonicalize, prepareImage }),
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -445,11 +540,11 @@ describe("vision_analyze native tool", () => {
     );
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
-      {
+      dependencies({
         messageParts,
         prepareImageBuffer,
         analyze: async () => ({ model: "opencode-go/vision", text: "attached result" }),
-      },
+      }),
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -491,10 +586,10 @@ describe("vision_analyze native tool", () => {
     const client = { session: { message } } as unknown as OpencodeClient;
     const definition = createVisionAnalyzeTool(
       client,
-      {
+      dependencies({
         prepareImageBuffer: async () => image,
         analyze: async () => ({ model: "opencode-go/vision", text: "parent result" }),
-      },
+      }),
       { defaultModel: "opencode-go/vision" },
     );
 

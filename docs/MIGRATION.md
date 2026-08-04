@@ -19,6 +19,9 @@ configuration, model metadata, and model-specific wire protocols.
 - Prefer the OpenCode SDK/server over direct Zen/Go HTTP calls.
 - Limit model IDs to `opencode-go/*` and `opencode/*` and require image input
   modality.
+- Gate native tool execution on the calling model recorded by OpenCode: only an
+  explicit `capabilities.input.image: false` may use the fallback; capable and
+  unverifiable callers are rejected before any image access.
 - Run analysis in an isolated session with every tool disabled.
 - Use SDK JSON Schema output for the default report; preserve free-form text
   exactly when a custom prompt is supplied.
@@ -66,6 +69,9 @@ OpenCode or contacting a provider.
 - The core requires an explicit upload-approval flag even when it is called
   outside the CLI. The native adapter explicitly requests OpenCode's
   `vision_analyze` permission immediately before it supplies that approval.
+- The native adapter resolves the caller from OpenCode's current message rather
+  than trusting tool arguments. It compares that identity with current provider
+  metadata and fails closed unless image input is explicitly disabled.
 - Image paths are canonicalized before reading. Native calls request
   `external_directory` permission when the resolved target is outside the worktree.
 - SDK file parts use only the local basename rather than transmitting an absolute

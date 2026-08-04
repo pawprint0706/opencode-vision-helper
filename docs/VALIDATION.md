@@ -33,7 +33,7 @@ OpenCode executable, inspect credentials, contact a provider, or upload an image
 | Strict report and free-form text preservation | `tests/report.test.ts`, `tests/opencode-http.test.ts` |
 | SDK routes, file part, schema retry request, tool disabling, cleanup, errors, and cancellation | `tests/opencode-http.test.ts` |
 | CLI stdout/stderr/exit, human/JSON/text output, Unicode paths, and timeout | `tests/cli.test.ts`, `scripts/verify-package.mjs` |
-| Native tool registration, SDK client bridge, upload/external-path permissions, attachments, and approved core handoff | `tests/tool.test.ts`, `tests/attachment.test.ts` |
+| Native caller identity and fail-closed image-capability gate, tool registration, SDK client bridge, upload/external-path permissions, attachments, and approved core handoff | `tests/model.test.ts`, `tests/tool.test.ts`, `tests/attachment.test.ts` |
 | Exact project/global install ownership, merge targets, symlink/junction containment, upgrade removal, rollback, modification preservation, and recovery | `tests/install.test.ts`, `scripts/verify-package.mjs` |
 | No OpenCode config/auth mutation during packaged adapter lifecycle | config/auth sentinels in `scripts/verify-package.mjs` |
 | Windows, macOS, and Linux automation definition | `.github/workflows/ci.yml` |

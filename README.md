@@ -63,7 +63,11 @@ URLs are not part of v1.
 The native tool can use an explicit local path or, when `image` is omitted, the
 sole image attached to the current OpenCode user message. Local/file URL
 attachments follow canonical path permissions; base64 image data is normalized
-in memory without creating a temporary file. Immediately before cloud analysis,
+in memory without creating a temporary file. Before reading the image, the adapter
+identifies the calling model from the current OpenCode message and checks the same
+server's model metadata. It runs only when `capabilities.input.image` is explicitly
+`false`; image-capable callers are told to analyze the image directly, while missing
+or unverifiable metadata fails closed. Immediately before cloud analysis,
 the tool requests OpenCode's `vision_analyze` permission for the selected model;
 `ask` is the recommended policy and `deny` prevents the tool from being exposed.
 

@@ -139,6 +139,16 @@ The model may be supplied on each tool call or through
 `OPENCODE_VISION_MODEL`. Only `opencode-go/*` and `opencode/*` models whose input
 capabilities include images are accepted.
 
+That model is the delegated analysis model, not the model calling the tool. At the
+start of every native invocation, the adapter reads the caller identity from the
+current OpenCode message and checks it against the loading server's provider model
+metadata. The invocation proceeds only when the caller belongs to OpenCode Go or
+Zen and its `capabilities.input.image` value is exactly `false`. A value of `true`
+returns `CALLER_VISION_CAPABLE` with an instruction to analyze the image directly.
+Missing models, unsupported providers, disconnected providers, and absent or
+ambiguous image capability return `CALLER_MODEL_UNVERIFIED`. Both checks happen
+before path resolution, image reads, permission prompts, or analysis cost.
+
 `timeoutMs` is optional and defaults to 120000. It must be between 1000 and
 1800000 milliseconds. Cancellation from OpenCode's tool context is propagated to
 provider discovery, session creation, and prompting; failures abort and remove the
@@ -176,6 +186,9 @@ Agent-specific rules can expose the tool only to a vision-limited agent:
   }
 }
 ```
+
+The agent rule reduces tool exposure; the runtime metadata gate remains the
+enforcement boundary if a vision-capable model can still invoke the tool.
 
 Images outside the current worktree trigger an additional `external_directory`
 permission request after symlinks are resolved. The adapter then preprocesses the

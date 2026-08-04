@@ -2,7 +2,12 @@ import type { Provider } from "@opencode-ai/sdk/v2";
 import { describe, expect, it } from "vitest";
 
 import { AppError } from "../src/errors.js";
-import { imageModels, parseModelRef, selectVisionModel } from "../src/model.js";
+import {
+  imageModels,
+  parseModelRef,
+  requireNonVisionCaller,
+  selectVisionModel,
+} from "../src/model.js";
 
 function provider(id: string, image: boolean): Provider {
   return {
@@ -37,6 +42,18 @@ function provider(id: string, image: boolean): Provider {
   };
 }
 
+function thrownAppError(run: () => unknown): AppError {
+  try {
+    run();
+  } catch (error) {
+    if (error instanceof AppError) {
+      return error;
+    }
+    throw error;
+  }
+  throw new Error("Expected AppError");
+}
+
 describe("model selection", () => {
   it("accepts only OpenCode Go and Zen model identifiers", () => {
     expect(parseModelRef("opencode-go/vision")).toEqual({
@@ -54,6 +71,32 @@ describe("model selection", () => {
       /does not accept image/,
     );
     expect(selectVisionModel(ref, [provider("opencode", true)], ["opencode"]).id).toBe("vision");
+  });
+
+  it("allows the fallback only when caller metadata explicitly disables image input", () => {
+    const ref = parseModelRef("opencode/vision");
+    expect(requireNonVisionCaller(ref, [provider("opencode", false)], ["opencode"]).id).toBe(
+      "vision",
+    );
+    expect(() => requireNonVisionCaller(ref, [provider("opencode", true)], ["opencode"])).toThrow(
+      /Analyze the image directly/,
+    );
+  });
+
+  it("fails closed when caller model metadata cannot be verified", () => {
+    const ref = parseModelRef("opencode/vision");
+    const incomplete = provider("opencode", false);
+    Reflect.deleteProperty(incomplete.models.vision.capabilities.input, "image");
+    expect(
+      thrownAppError(() => requireNonVisionCaller(ref, [provider("opencode", false)], [])),
+    ).toMatchObject({ code: "CALLER_MODEL_UNVERIFIED", retryable: false });
+    expect(thrownAppError(() => requireNonVisionCaller(ref, [], ["opencode"]))).toMatchObject({
+      code: "CALLER_MODEL_UNVERIFIED",
+      retryable: false,
+    });
+    expect(
+      thrownAppError(() => requireNonVisionCaller(ref, [incomplete], ["opencode"])),
+    ).toMatchObject({ code: "CALLER_MODEL_UNVERIFIED", retryable: false });
   });
 
   it("lists only connected image models in allowed providers", () => {

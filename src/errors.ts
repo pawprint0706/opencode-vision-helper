@@ -5,6 +5,8 @@ export type ErrorCode =
   | "PROVIDER_NOT_CONNECTED"
   | "MODEL_NOT_FOUND"
   | "MODEL_NOT_VISION_CAPABLE"
+  | "CALLER_MODEL_UNVERIFIED"
+  | "CALLER_VISION_CAPABLE"
   | "UPLOAD_NOT_APPROVED"
   | "ANALYSIS_ABORTED"
   | "ANALYSIS_TIMEOUT"
@@ -26,6 +28,9 @@ const NEXT_ACTION: Record<ErrorCode, string> = {
   PROVIDER_NOT_CONNECTED: "Connect OpenCode Go or Zen with /connect, then retry.",
   MODEL_NOT_FOUND: "Choose an available Go or Zen model shown by doctor.",
   MODEL_NOT_VISION_CAPABLE: "Choose a model whose input capabilities include images.",
+  CALLER_MODEL_UNVERIFIED:
+    "Use a connected OpenCode Go or Zen model whose metadata explicitly disables image input.",
+  CALLER_VISION_CAPABLE: "Analyze the image directly with the calling model.",
   UPLOAD_NOT_APPROVED:
     "Review the image, then retry with --allow-upload in the CLI or approve the OpenCode permission.",
   ANALYSIS_ABORTED: "Retry only if image analysis is still needed.",

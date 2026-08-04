@@ -2,13 +2,18 @@ import { realpath } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 import { type ToolContext, type ToolDefinition, tool } from "@opencode-ai/plugin";
-import type { OpencodeClient, Part } from "@opencode-ai/sdk/v2";
+import type { Message, OpencodeClient, Part } from "@opencode-ai/sdk/v2";
 
 import { createAbortScope, DEFAULT_ANALYSIS_TIMEOUT_MS } from "./abort.js";
 import { selectMessageImage } from "./attachment.js";
 import { AppError, asAppError, mapOpenCodeError } from "./errors.js";
 import { type PreparedImage, prepareImage, prepareImageBuffer } from "./imaging.js";
-import { parseModelRef } from "./model.js";
+import {
+  ALLOWED_PROVIDER_IDS,
+  type ModelRef,
+  parseModelRef,
+  requireNonVisionCaller,
+} from "./model.js";
 import { type AnalysisResult, type AnalyzeOptions, analyzeWithClient } from "./opencode.js";
 import { DEFAULT_PROMPT, formatReport } from "./report.js";
 
@@ -18,6 +23,11 @@ export type VisionToolDependencies = {
   analyze(client: OpencodeClient, options: AnalyzeOptions): Promise<AnalysisResult>;
   canonicalize(path: string): Promise<string>;
   messageParts(client: OpencodeClient, context: ToolContext, signal: AbortSignal): Promise<Part[]>;
+  validateCaller(
+    client: OpencodeClient,
+    context: ToolContext,
+    signal: AbortSignal,
+  ): Promise<ModelRef>;
 };
 
 export type VisionToolOptions = {
@@ -31,7 +41,48 @@ const DEFAULT_DEPENDENCIES: VisionToolDependencies = {
   analyze: analyzeWithClient,
   canonicalize: realpath,
   messageParts: loadCurrentMessageParts,
+  validateCaller: validateCallingModel,
 };
+
+function callingModelRef(info: Message): ModelRef {
+  const providerID = info.role === "assistant" ? info.providerID : info.model.providerID;
+  const modelID = info.role === "assistant" ? info.modelID : info.model.modelID;
+  if (
+    !ALLOWED_PROVIDER_IDS.includes(providerID as ModelRef["providerID"]) ||
+    modelID.trim() === ""
+  ) {
+    throw new AppError(
+      "CALLER_MODEL_UNVERIFIED",
+      `The calling model '${providerID}/${modelID}' is outside the supported OpenCode Go and Zen providers.`,
+    );
+  }
+  return { providerID: providerID as ModelRef["providerID"], modelID };
+}
+
+export async function validateCallingModel(
+  client: OpencodeClient,
+  context: ToolContext,
+  signal: AbortSignal,
+): Promise<ModelRef> {
+  try {
+    const [message, state] = await Promise.all([
+      client.session.message(
+        {
+          sessionID: context.sessionID,
+          messageID: context.messageID,
+          directory: context.directory,
+        },
+        { throwOnError: true, signal },
+      ),
+      client.provider.list({ directory: context.directory }, { throwOnError: true, signal }),
+    ]);
+    const ref = callingModelRef(message.data.info);
+    requireNonVisionCaller(ref, state.data.all, state.data.connected);
+    return ref;
+  } catch (error) {
+    throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE", signal);
+  }
+}
 
 export async function loadCurrentMessageParts(
   client: OpencodeClient,
@@ -105,8 +156,11 @@ export function createVisionAnalyzeTool(
   const services = { ...DEFAULT_DEPENDENCIES, ...dependencies };
   return tool({
     description:
-      "Analyze one local image or the current message's sole image attachment with an " +
+      "Fallback for a calling model without image input: analyze one local image or the " +
+      "current message's sole image attachment with an " +
       "image-capable OpenCode Go or Zen model. " +
+      "Do not call this when you can analyze images directly; execution verifies the calling " +
+      "model against OpenCode metadata and refuses image-capable or unverifiable callers. " +
       "This uploads the selected image to the configured cloud provider; use it only when " +
       "the user has approved that transmission.",
     args: {
@@ -142,6 +196,7 @@ export function createVisionAnalyzeTool(
         );
         try {
           abortScope.signal.throwIfAborted();
+          await services.validateCaller(client, context, abortScope.signal);
           const preparePath = async (inputPath: string): Promise<PreparedImage> => {
             const candidate = resolve(context.directory, inputPath);
             let imagePath: string;

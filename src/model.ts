@@ -54,6 +54,40 @@ export function selectVisionModel(
   return model;
 }
 
+export function requireNonVisionCaller(
+  ref: ModelRef,
+  providers: Provider[],
+  connectedProviderIDs: string[],
+): Provider["models"][string] {
+  if (!connectedProviderIDs.includes(ref.providerID)) {
+    throw new AppError(
+      "CALLER_MODEL_UNVERIFIED",
+      `OpenCode could not verify the calling model '${ref.providerID}/${ref.modelID}' as connected.`,
+    );
+  }
+  const provider = providers.find((candidate) => candidate.id === ref.providerID);
+  const model = provider?.models[ref.modelID];
+  if (!model) {
+    throw new AppError(
+      "CALLER_MODEL_UNVERIFIED",
+      `OpenCode metadata does not contain the calling model '${ref.providerID}/${ref.modelID}'.`,
+    );
+  }
+  if (model.capabilities?.input?.image === true) {
+    throw new AppError(
+      "CALLER_VISION_CAPABLE",
+      `OpenCode reports that the calling model '${ref.providerID}/${ref.modelID}' accepts image input. Analyze the image directly instead of calling vision_analyze.`,
+    );
+  }
+  if (model.capabilities?.input?.image !== false) {
+    throw new AppError(
+      "CALLER_MODEL_UNVERIFIED",
+      `OpenCode metadata does not explicitly disable image input for the calling model '${ref.providerID}/${ref.modelID}'.`,
+    );
+  }
+  return model;
+}
+
 export function imageModels(providers: Provider[], connected: string[]): string[] {
   return providers
     .filter(
