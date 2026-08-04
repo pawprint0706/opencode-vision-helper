@@ -89,6 +89,7 @@ async function prepareImageSource(
 
   try {
     const source = sharp(input, {
+      animated: true,
       failOn: "error",
       limitInputPixels: MAX_IMAGE_PIXELS,
       sequentialRead: true,

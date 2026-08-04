@@ -29,4 +29,27 @@ describe("report validation", () => {
   ])("rejects malformed structured output %#", (value) => {
     expect(() => parseVisionReport(value)).toThrow(AppError);
   });
+
+  it.each([
+    {
+      summary: "ok",
+      issues: [],
+      explanation: "not in the contract",
+    },
+    {
+      summary: "ok",
+      issues: [
+        {
+          severity: "low",
+          region: "header",
+          element: "logo",
+          description: "Looks fine.",
+          css_hint: "None.",
+          confidence: 0.9,
+        },
+      ],
+    },
+  ])("rejects additional properties excluded by the schema %#", (value) => {
+    expect(() => parseVisionReport(value)).toThrow(/unexpected field/);
+  });
 });

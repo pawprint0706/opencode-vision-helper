@@ -54,11 +54,29 @@ export const IMAGE_TRUST_INSTRUCTION =
 function isString(value: unknown): value is string {
   return typeof value === "string";
 }
+
+function assertExactKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  label: string,
+): void {
+  const unexpectedKeys = Object.keys(value).filter(
+    (key) => !allowedKeys.includes(key),
+  );
+  if (unexpectedKeys.length > 0) {
+    throw new AppError(
+      "STRUCTURED_OUTPUT_INVALID",
+      `${label} has unexpected field${unexpectedKeys.length === 1 ? "" : "s"}: ${unexpectedKeys.join(", ")}.`,
+    );
+  }
+}
+
 export function parseVisionReport(value: unknown): VisionReport {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new AppError("STRUCTURED_OUTPUT_INVALID", "Structured output is not an object.");
   }
   const object = value as Record<string, unknown>;
+  assertExactKeys(object, ["summary", "issues"], "Structured output");
   if (!isString(object.summary) || !Array.isArray(object.issues)) {
     throw new AppError(
       "STRUCTURED_OUTPUT_INVALID",
@@ -73,6 +91,11 @@ export function parseVisionReport(value: unknown): VisionReport {
       );
     }
     const issue = item as Record<string, unknown>;
+    assertExactKeys(
+      issue,
+      ["severity", "region", "element", "description", "css_hint"],
+      `Issue ${index}`,
+    );
     const severity = issue.severity;
     if (
       severity !== "high" &&
