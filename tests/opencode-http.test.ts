@@ -345,6 +345,7 @@ describe("OpenCode SDK HTTP boundary", () => {
       code: "PROVIDER_ERROR",
       retryable: false,
       message: "OpenCode provider request failed.",
+      stage: "analysis prompt",
     });
     expect(requests.map(({ method, path }) => `${method} ${path}`)).toEqual([
       "GET /provider",

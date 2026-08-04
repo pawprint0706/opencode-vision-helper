@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { PreparedImage } from "../src/imaging.js";
 import { VisionHelperPlugin } from "../src/plugin.js";
+import { adaptPluginClient } from "../src/plugin-client.js";
 import { createVisionAnalyzeTool } from "../src/tool.js";
 
 const image: PreparedImage = {
@@ -37,8 +38,10 @@ function context(directory: string, worktree = directory) {
 describe("vision_analyze native tool", () => {
   it("registers against the OpenCode server that loaded the plugin", async () => {
     const directory = resolve("project");
+    const client = {} as PluginInput["client"];
     const hooks = await VisionHelperPlugin(
       {
+        client,
         serverUrl: new URL("http://127.0.0.1:4096"),
         directory,
         worktree: directory,
@@ -46,6 +49,70 @@ describe("vision_analyze native tool", () => {
       { model: "opencode-go/vision" },
     );
     expect(hooks.tool).toHaveProperty("vision_analyze");
+  });
+
+  it("adapts the supplied plugin client without creating another connection", async () => {
+    const providerList = vi.fn(async () => ({ data: { all: [], connected: [] } }));
+    const toolIds = vi.fn(async () => ({ data: ["read"] }));
+    const sessionCreate = vi.fn(async () => ({ data: { id: "analysis-session" } }));
+    const sessionDelete = vi.fn(async () => ({ data: true }));
+    const sessionAbort = vi.fn(async () => ({ data: true }));
+    const sessionPrompt = vi.fn(async () => ({ data: {} }));
+    const sessionMessage = vi.fn(async () => ({ data: {} }));
+    const pluginClient = {
+      provider: { list: providerList },
+      tool: { ids: toolIds },
+      session: {
+        create: sessionCreate,
+        delete: sessionDelete,
+        abort: sessionAbort,
+        prompt: sessionPrompt,
+        message: sessionMessage,
+      },
+    } as unknown as PluginInput["client"];
+    const client = adaptPluginClient(pluginClient);
+    const signal = new AbortController().signal;
+
+    await client.provider.list({ directory: "project" }, { throwOnError: true, signal });
+    await client.tool.ids({ directory: "project" }, { throwOnError: true });
+    await client.session.create(
+      { directory: "project", title: "analysis", metadata: { service: "vision" } },
+      { throwOnError: true },
+    );
+    await client.session.prompt(
+      { sessionID: "session", directory: "project", parts: [] },
+      { throwOnError: true },
+    );
+    await client.session.message(
+      { sessionID: "session", messageID: "message", directory: "project" },
+      { throwOnError: true },
+    );
+
+    expect(providerList).toHaveBeenCalledWith({
+      throwOnError: true,
+      signal,
+      query: { directory: "project" },
+    });
+    expect(toolIds).toHaveBeenCalledWith({
+      throwOnError: true,
+      query: { directory: "project" },
+    });
+    expect(sessionCreate).toHaveBeenCalledWith({
+      throwOnError: true,
+      body: { title: "analysis", metadata: { service: "vision" } },
+      query: { directory: "project" },
+    });
+    expect(sessionPrompt).toHaveBeenCalledWith({
+      throwOnError: true,
+      body: { parts: [] },
+      path: { id: "session" },
+      query: { directory: "project" },
+    });
+    expect(sessionMessage).toHaveBeenCalledWith({
+      throwOnError: true,
+      path: { id: "session", messageID: "message" },
+      query: { directory: "project" },
+    });
   });
 
   it("uses the approved core and returns a formatted report", async () => {
@@ -73,7 +140,16 @@ describe("vision_analyze native tool", () => {
       output: "Summary: Looks good\nIssues: none",
       metadata: { model: "opencode-go/vision", cost: 0.001 },
     });
-    expect(toolContext.ask).not.toHaveBeenCalled();
+    expect(toolContext.ask).toHaveBeenCalledWith({
+      permission: "vision_analyze",
+      patterns: ["opencode-go/vision"],
+      always: ["opencode-go/vision"],
+      metadata: {
+        reason: "Upload the selected image for cloud vision analysis",
+        image: image.path,
+        model: "opencode-go/vision",
+      },
+    });
     expect(analyze).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -106,10 +182,18 @@ describe("vision_analyze native tool", () => {
         toolContext.value,
       ),
     ).resolves.toMatchObject({ output: "  exact text  " });
-    expect(toolContext.ask).toHaveBeenCalledWith(
+    expect(toolContext.ask).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         permission: "external_directory",
         patterns: [external],
+      }),
+    );
+    expect(toolContext.ask).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        permission: "vision_analyze",
+        patterns: ["opencode/vision"],
       }),
     );
   });
@@ -129,7 +213,35 @@ describe("vision_analyze native tool", () => {
 
     await definition.execute({ image: "..screens/shot.png" }, toolContext.value);
 
-    expect(toolContext.ask).not.toHaveBeenCalled();
+    expect(toolContext.ask).toHaveBeenCalledTimes(1);
+    expect(toolContext.ask).toHaveBeenCalledWith(
+      expect.objectContaining({ permission: "vision_analyze" }),
+    );
+  });
+
+  it("does not upload when vision permission is denied", async () => {
+    const directory = resolve("project");
+    const toolContext = context(directory);
+    toolContext.ask.mockRejectedValue(new Error("Permission denied"));
+    const analyze = vi.fn();
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      {
+        canonicalize: async (path) => resolve(path),
+        prepareImage: async () => image,
+        analyze,
+      },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    const result = await definition.execute({ image: "screen.png" }, toolContext.value);
+
+    expect(JSON.parse(result as string)).toMatchObject({
+      status: "error",
+      error_code: "UPLOAD_NOT_APPROVED",
+      retryable: false,
+    });
+    expect(analyze).not.toHaveBeenCalled();
   });
 
   it("uses the current message's sole data attachment when image is omitted", async () => {

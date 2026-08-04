@@ -219,6 +219,7 @@ describe("OpenCode SDK contract", () => {
     ).rejects.toMatchObject({
       code: "PROVIDER_ERROR",
       message: "OpenCode could not complete image analysis.",
+      stage: "analysis prompt",
     });
     expect(calls.delete).toEqual({
       sessionID: "session-1",

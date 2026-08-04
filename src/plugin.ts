@@ -1,17 +1,14 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
 
+import { adaptPluginClient } from "./plugin-client.js";
 import { createVisionAnalyzeTool } from "./tool.js";
 
-export const VisionHelperPlugin: Plugin = async ({ serverUrl, directory }, options) => {
+export const VisionHelperPlugin: Plugin = async ({ client: pluginClient }, options) => {
   const configuredModel = options?.model;
   const defaultModel = typeof configuredModel === "string" ? configuredModel : undefined;
   const configuredTimeout = options?.timeoutMs;
   const timeoutMs = typeof configuredTimeout === "number" ? configuredTimeout : undefined;
-  const client = createOpencodeClient({
-    baseUrl: serverUrl.toString(),
-    directory,
-  });
+  const client = adaptPluginClient(pluginClient);
   return {
     tool: {
       vision_analyze: createVisionAnalyzeTool(client, undefined, {

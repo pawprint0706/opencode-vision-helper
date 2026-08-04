@@ -189,11 +189,15 @@ export async function analyzeWithClient(
     );
   }
   let sessionID: string | undefined;
+  let stage = "model validation";
   try {
     const ref = parseModelRef(options.model);
+    stage = "provider discovery";
     const state = await providerState(client, options.directory, options.signal);
     validateModel(ref, state);
+    stage = "tool discovery";
     const tools = await disabledTools(client, options.directory, options.signal);
+    stage = "session creation";
     const created = await client.session.create(
       {
         directory: options.directory,
@@ -208,6 +212,7 @@ export async function analyzeWithClient(
     const promptOptions = options.signal
       ? { throwOnError: true as const, signal: options.signal }
       : { throwOnError: true as const };
+    stage = "analysis prompt";
     const response = await client.session.prompt(
       {
         sessionID,
@@ -241,6 +246,7 @@ export async function analyzeWithClient(
     };
     let result: AnalysisResult;
     if (options.structured) {
+      stage = "structured report validation";
       result = { ...base, report: parseVisionReport(response.data.info.structured) };
     } else {
       const text = response.data.parts
@@ -256,6 +262,7 @@ export async function analyzeWithClient(
     if (options.keepSession) {
       return { ...result, session_id: sessionID };
     }
+    stage = "session cleanup";
     const deleted = await deleteSession(client, options.directory, sessionID);
     sessionID = undefined;
     if (!deleted) {
@@ -276,6 +283,11 @@ export async function analyzeWithClient(
       await abortSession(client, options.directory, sessionID);
       await deleteSession(client, options.directory, sessionID);
     }
-    throw mapOpenCodeError(error, "PROVIDER_ERROR", options.signal);
+    const mapped = mapOpenCodeError(error, "PROVIDER_ERROR", options.signal);
+    throw new AppError(mapped.code, mapped.message, {
+      cause: mapped.cause ?? error,
+      retryable: mapped.retryable,
+      stage,
+    });
   }
 }

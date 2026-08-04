@@ -40,11 +40,12 @@ export class AppError extends Error {
   readonly retryable: boolean;
   readonly nextAction: string;
   readonly cause?: unknown;
+  readonly stage?: string;
 
   constructor(
     code: ErrorCode,
     message: string,
-    options?: { cause?: unknown; retryable?: boolean },
+    options?: { cause?: unknown; retryable?: boolean; stage?: string },
   ) {
     super(message);
     this.name = "AppError";
@@ -53,6 +54,9 @@ export class AppError extends Error {
     this.nextAction = NEXT_ACTION[code];
     if (options && "cause" in options) {
       this.cause = options.cause;
+    }
+    if (options?.stage) {
+      this.stage = options.stage;
     }
   }
 
@@ -63,6 +67,7 @@ export class AppError extends Error {
       retryable: this.retryable,
       message: this.message,
       next_action: this.nextAction,
+      ...(this.stage ? { stage: this.stage } : {}),
     };
   }
 }

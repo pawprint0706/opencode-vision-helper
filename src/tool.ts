@@ -159,6 +159,22 @@ export function createVisionAnalyzeTool(
                 : await services.prepareImageBuffer(attachment.bytes, attachment.filename);
           }
 
+          try {
+            await context.ask({
+              permission: "vision_analyze",
+              patterns: [model],
+              always: [model],
+              metadata: {
+                reason: "Upload the selected image for cloud vision analysis",
+                image: image.path,
+                model,
+              },
+            });
+          } catch (error) {
+            throw new AppError("UPLOAD_NOT_APPROVED", "OpenCode did not approve image upload.", {
+              cause: error,
+            });
+          }
           context.metadata({
             title: "Analyze image",
             metadata: { image: image.path, model },
