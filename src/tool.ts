@@ -1,5 +1,5 @@
 import { realpath } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 import { type ToolContext, type ToolDefinition, tool } from "@opencode-ai/plugin";
 import type { OpencodeClient, Part } from "@opencode-ai/sdk/v2";
@@ -63,7 +63,10 @@ export async function loadCurrentMessageParts(
 
 function isWithin(root: string, target: string): boolean {
   const pathFromRoot = relative(root, target);
-  return pathFromRoot === "" || (!pathFromRoot.startsWith("..") && !isAbsolute(pathFromRoot));
+  return (
+    pathFromRoot === "" ||
+    (!isAbsolute(pathFromRoot) && pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep}`))
+  );
 }
 
 function formatToolResult(result: AnalysisResult): string {

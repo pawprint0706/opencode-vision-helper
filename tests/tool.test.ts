@@ -114,6 +114,24 @@ describe("vision_analyze native tool", () => {
     );
   });
 
+  it("does not treat an in-worktree name beginning with dots as external", async () => {
+    const directory = resolve("project");
+    const toolContext = context(directory);
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      {
+        canonicalize: async (path) => resolve(path),
+        prepareImage: async () => image,
+        analyze: async () => ({ model: "opencode-go/vision", text: "result" }),
+      },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    await definition.execute({ image: "..screens/shot.png" }, toolContext.value);
+
+    expect(toolContext.ask).not.toHaveBeenCalled();
+  });
+
   it("uses the current message's sole data attachment when image is omitted", async () => {
     const directory = resolve("project");
     const prepareImageBuffer = vi.fn(async () => image);

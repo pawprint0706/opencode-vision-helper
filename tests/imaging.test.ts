@@ -92,6 +92,21 @@ describe("image preparation", () => {
     });
   });
 
+  it.each(["C:\\private\\desktop-upload.webp", "/private/desktop-upload.webp"])(
+    "removes either platform's directory syntax from attachment names",
+    async (filename) => {
+      const input = await sharp({
+        create: { width: 10, height: 10, channels: 3, background: "blue" },
+      })
+        .webp()
+        .toBuffer();
+
+      const prepared = await prepareImageBuffer(input, filename);
+
+      expect(prepared.path).toBe("desktop-upload.webp");
+    },
+  );
+
   it("rejects a file larger than the encoded-size limit before decoding", async () => {
     const directory = await temporaryDirectory();
     const imagePath = join(directory, "oversized.png");

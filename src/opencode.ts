@@ -1,8 +1,7 @@
-import { basename } from "node:path";
 import { createOpencode, type OpencodeClient, type Provider } from "@opencode-ai/sdk/v2";
 
 import { AppError, mapOpenCodeError } from "./errors.js";
-import { imageDataUrl, type PreparedImage } from "./imaging.js";
+import { imageDataUrl, imageFilename, type PreparedImage } from "./imaging.js";
 import { imageModels, type ModelRef, parseModelRef, selectVisionModel } from "./model.js";
 import {
   IMAGE_TRUST_INSTRUCTION,
@@ -226,7 +225,7 @@ export async function analyzeWithClient(
           {
             type: "file",
             mime: options.image.mime,
-            filename: basename(options.image.path),
+            filename: imageFilename(options.image.path),
             url: imageDataUrl(options.image),
           },
         ],

@@ -11,6 +11,10 @@ export const DEFAULT_MAX_LONG_EDGE = 1568;
 const JPEG_PIXEL_THRESHOLD = 1_400_000;
 const ALLOWED_FORMATS = new Set(["png", "jpeg", "webp"]);
 
+export function imageFilename(value: string, fallback = "image"): string {
+  return basename(value.replaceAll("\\", "/")) || fallback;
+}
+
 export type PreparedImage = {
   path: string;
   bytes: Buffer;
@@ -72,7 +76,7 @@ export async function prepareImageBuffer(
       `Image is too large (${bytes.length} bytes; limit ${MAX_INPUT_BYTES}).`,
     );
   }
-  const sourceName = basename(filename) || "attachment";
+  const sourceName = imageFilename(filename, "attachment");
   return prepareImageSource(bytes, sourceName, options);
 }
 
