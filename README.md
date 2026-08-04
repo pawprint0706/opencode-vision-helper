@@ -11,7 +11,9 @@ offline tests. A synthetic fixture has also been validated through the live Open
 Go and Zen paths, through the installed native tool in the OpenCode TUI for local
 and external paths, through OpenCode's real message-file attachment path, and in the
 OpenCode Desktop file picker and permission UI. The package is not published; local
-packed-artifact installation is verified on every `npm run verify`.
+packed-artifact installation is verified on every `npm run verify`. The local-only
+v1 implementation and validation scope is complete; public distribution remains a
+separate future decision.
 
 The target flow is:
 

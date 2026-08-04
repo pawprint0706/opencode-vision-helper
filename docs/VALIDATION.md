@@ -98,9 +98,10 @@ out and removed its project successfully. The unreliable prototype is not shippe
 the successful TUI and Desktop checks above remain the native live evidence until
 OpenCode's non-interactive plugin path can be reproduced reliably.
 
-## Remaining local validation
+## Deferred validation
 
-The following checks remain intentionally unexecuted:
+No required check remains for the `ask`-based local-only v1. The following checks
+remain intentionally deferred:
 
 1. Optionally verify an intentional persistent `allow` policy in a dedicated trusted test
    project; `ask` remains the recommended default.
@@ -112,11 +113,12 @@ limited to the user's authorized synthetic fixtures, TUI-first validation, and l
 distribution testing. Credentials remain owned by OpenCode and must never be copied
 into this project or recorded in validation output.
 
-## Distribution decisions
+## Distribution decision
 
-The package remains `private` and unpublished. Before a release, choose local-only,
-private-registry, public npm, or another artifact channel; then add the corresponding
-repository metadata, version/provenance policy, and published-artifact smoke test.
-The original `orca-vision-helper` maintenance/archive/deprecation decision is
-separate and must not remove an existing installation or credential without its own
-explicit approval.
+The current distribution is local-only, and the package remains `private` and
+unpublished. Before a later external release, choose private-registry, public npm,
+or another artifact channel; then add the corresponding repository metadata,
+version/provenance policy, and published-artifact smoke test. The original
+`orca-vision-helper` maintenance/archive/deprecation decision is separate and must
+not remove an existing installation or credential without its own explicit
+approval.

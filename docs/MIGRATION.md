@@ -24,6 +24,8 @@ configuration, model metadata, and model-specific wire protocols.
   exactly when a custom prompt is supplied.
 - Do not store, update, delete, or print OpenCode credentials.
 - Defer MCP until a non-OpenCode client or a multi-tool server is required.
+- Keep the current distribution local-only; public publication is a later,
+  separately approved phase.
 
 ## Migration phases
 
@@ -48,10 +50,10 @@ configuration, model metadata, and model-specific wire protocols.
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an
    offline temporary consumer and its plugin export and adapter lifecycle are verified.
-6. **In progress:** the packaged CLI is validated end-to-end against a local fake
+6. **Complete for local-only v1:** the packaged CLI is validated end-to-end against a local fake
    OpenCode executable, and live Go/Zen CLI plus TUI and Desktop validation has
    passed. The remote three-OS CI result, public distribution, and source-repository
-   policy remain deferred or pending.
+   policy are outside the current local-only release boundary and remain deferred.
 
 Offline CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and
