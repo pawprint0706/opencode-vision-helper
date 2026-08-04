@@ -100,20 +100,22 @@ still exactly matches that manifest. If either file was edited or ownership cann
 be proved, it stops instead of replacing it. Package and permission snippets remain
 manual user-owned configuration and are never rewritten during an upgrade.
 
-## Coexistence with orca-vision-helper
+## Retired orca-vision-helper installations
 
-The original `orca-vision-helper` can remain installed during migration because it
-uses a different command and configuration directory. This installer does not
-inspect or alter that installation, its keyring entries, its configuration, or any
-agent instructions it previously added.
+The original `orca-vision-helper` project is deprecated, archived, and no longer
+maintained. Do not install it for new use. An existing installation can still be
+present because it uses a different command and configuration directory. This
+installer does not inspect or alter that installation, its keyring entries, its
+configuration, or any agent instructions it previously added.
 
 Avoid routing the same analysis through both helpers: doing so can upload an image
-twice and incur duplicate model cost. After validating `vision_analyze`, remove or
-disable old `orca-vision-helper` agent instructions so agents have one preferred
-path. Uninstalling the old package, deleting its configuration, or removing its
-credentials is a separate operation that requires explicit approval and must follow
-that project's ownership-aware removal instructions. No old provider credential is
-migrated; connect Go or Zen in OpenCode with `/connect` instead.
+twice and incur duplicate model cost. Remove or disable old `orca-vision-helper`
+agent instructions so agents have one preferred path. Uninstalling the old package,
+deleting its configuration, or removing its credentials is a separate operation
+that requires explicit approval and must follow the archived project's
+[ownership-aware removal instructions](https://github.com/pawprint0706/orca-vision-helper/blob/main/docs/AGENT_UNINSTALL.md).
+No old provider credential is migrated; connect Go or Zen in OpenCode with
+`/connect` instead.
 
 The wrapper uses `OPENCODE_VISION_MODEL` unless the caller supplies `model`. As an
 alternative to installing the wrapper, package-only registration can add
