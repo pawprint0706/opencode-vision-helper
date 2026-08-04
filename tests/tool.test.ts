@@ -166,6 +166,45 @@ describe("vision_analyze native tool", () => {
     );
   });
 
+  it("makes a retained analysis session visible without changing provider text", async () => {
+    const directory = resolve("project");
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      {
+        canonicalize: async (path) => resolve(path),
+        prepareImage: async () => image,
+        analyze: async () => ({
+          model: "opencode-go/vision",
+          text: "  exact provider text  ",
+          session_id: "retained-session",
+          warnings: [
+            {
+              code: "SESSION_CLEANUP_FAILED",
+              message: "The temporary analysis session remains.",
+            },
+          ],
+        }),
+      },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    await expect(
+      definition.execute({ image: "screen.png", prompt: "Read it." }, context(directory).value),
+    ).resolves.toMatchObject({
+      title: "Vision analysis (cleanup warning)",
+      output: "  exact provider text  ",
+      metadata: {
+        session_id: "retained-session",
+        warnings: [
+          {
+            code: "SESSION_CLEANUP_FAILED",
+            message: "The temporary analysis session remains.",
+          },
+        ],
+      },
+    });
+  });
+
   it("asks for external-directory permission after resolving symlinks", async () => {
     const directory = resolve("project");
     const external = resolve("outside", "screen.png");

@@ -116,6 +116,10 @@ capabilities include images are accepted.
 provider discovery, session creation, and prompting; failures abort and remove the
 temporary analysis session on a best-effort basis.
 
+If analysis succeeds but temporary-session deletion fails, the native tool preserves
+the provider text exactly, changes its visible title to `Vision analysis (cleanup
+warning)`, and includes the retained session ID and warning details in tool metadata.
+
 ## Permission policy
 
 `vision_analyze` uploads the selected image to the configured OpenCode Go or Zen

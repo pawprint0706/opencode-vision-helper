@@ -77,6 +77,10 @@ function formatToolResult(result: AnalysisResult): string {
   return result.text ?? "";
 }
 
+function toolResultTitle(result: AnalysisResult): string {
+  return result.warnings?.length ? "Vision analysis (cleanup warning)" : "Vision analysis";
+}
+
 async function requirePermission(
   context: ToolContext,
   request: Parameters<ToolContext["ask"]>[0],
@@ -213,7 +217,7 @@ export function createVisionAnalyzeTool(
             signal: abortScope.signal,
           });
           return {
-            title: "Vision analysis",
+            title: toolResultTitle(result),
             output: formatToolResult(result),
             metadata: {
               model: result.model,
