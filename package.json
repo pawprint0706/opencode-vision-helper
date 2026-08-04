@@ -1,0 +1,37 @@
+{
+  "name": "opencode-vision-helper",
+  "version": "0.1.0",
+  "description": "OpenCode-native vision fallback for models without image input",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "opencode-vision-helper": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "opencode",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "^1.18.12",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.5",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
