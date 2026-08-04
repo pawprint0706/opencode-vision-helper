@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   createAbortScope,
@@ -204,8 +205,18 @@ export async function main(
   throw new AppError("BAD_REQUEST", `Unknown command: ${command}`);
 }
 
-const entrypoint = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";
-if (import.meta.url === entrypoint) {
+export function isEntrypoint(moduleUrl: string, argument = process.argv[1]): boolean {
+  if (!argument) {
+    return false;
+  }
+  try {
+    return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(resolve(argument));
+  } catch {
+    return moduleUrl === pathToFileURL(resolve(argument)).href;
+  }
+}
+
+if (isEntrypoint(import.meta.url)) {
   main().then(
     (code) => {
       process.exitCode = code;

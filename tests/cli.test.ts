@@ -1,11 +1,11 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
-import { type CliServices, main, parseAnalyzeArgs } from "../src/cli.js";
+import { type CliServices, isEntrypoint, main, parseAnalyzeArgs } from "../src/cli.js";
 import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
 
@@ -46,6 +46,28 @@ const preparedImage: PreparedImage = {
   originalWidth: 1,
   originalHeight: 1,
 };
+
+describe("CLI entrypoint", () => {
+  it("recognizes the same file through a symlinked directory", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "vision-cli-entrypoint-"));
+    try {
+      const realDirectory = join(temporaryRoot, "real");
+      const linkedDirectory = join(temporaryRoot, "linked");
+      await mkdir(realDirectory);
+      const cliPath = join(realDirectory, "cli.js");
+      await writeFile(cliPath, "export {};\n");
+      await symlink(
+        realDirectory,
+        linkedDirectory,
+        process.platform === "win32" ? "junction" : "dir",
+      );
+
+      expect(isEntrypoint(pathToFileURL(cliPath).href, join(linkedDirectory, "cli.js"))).toBe(true);
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+});
 
 function services(overrides: Partial<CliServices> = {}): CliServices {
   return {
