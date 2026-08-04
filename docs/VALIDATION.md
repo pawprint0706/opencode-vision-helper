@@ -68,6 +68,12 @@ the authenticated client supplied by OpenCode resolved it. The final run verifie
 - `Allow once` completed analysis and found the intentionally clipped save button
 - the child analysis session had wildcard tool permission set to `deny`
 - a fresh session with `vision_analyze: deny` did not expose or invoke the tool
+- an external synthetic path requested `external_directory` first and
+  `vision_analyze` second, then completed after two one-time approvals
+- `opencode run -i --file` selected the current message attachment when the tool's
+  `image` argument was omitted; its default permission rejection returned
+  `UPLOAD_NOT_APPROVED` before upload, and an explicitly authorized `--auto` rerun
+  completed the attached-image analysis
 - the ownership-checked uninstaller removed its wrapper and manifest afterward
 
 Only the generated synthetic image was sent. The temporary project package/config,
@@ -78,9 +84,8 @@ test; no credential file was read or changed.
 
 The following checks remain intentionally unexecuted:
 
-1. In the actual TUI/desktop client, verify the external-directory and attached
-   image flows and their approval UI.
-2. Optionally verify an intentional `allow` policy in a dedicated trusted test
+1. In the graphical desktop client, verify its attachment picker and permission UI.
+2. Optionally verify an intentional persistent `allow` policy in a dedicated trusted test
    project; `ask` remains the recommended default.
 3. Observe a green Windows/macOS/Linux CI matrix for the release candidate.
 

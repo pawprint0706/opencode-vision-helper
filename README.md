@@ -8,7 +8,8 @@ image-capable OpenCode Go or Zen model through the OpenCode SDK.
 
 The CLI and native `vision_analyze` plugin adapter are implemented and covered by
 offline tests. A synthetic fixture has also been validated through the live OpenCode
-Go and Zen paths and through the installed native tool in the OpenCode TUI. The
+Go and Zen paths, through the installed native tool in the OpenCode TUI for local
+and external paths, and through OpenCode's real message-file attachment path. The
 package is not published; local packed-artifact installation is verified on every
 `npm run verify`.
 

@@ -39,15 +39,16 @@ configuration, model metadata, and model-specific wire protocols.
    authenticated client supplied by the current OpenCode server, requests upload
    permission before analysis, and resolves external paths through a separate
    permission request. A live TUI run verified the `ask` prompt, one-time approval,
-   successful analysis, tool-free child session, and `deny` removal. Live desktop
-   and attachment flows remain pending.
+   successful analysis, tool-free child session, and `deny` removal. The external
+   path's two permission prompts and OpenCode's real message-file attachment path
+   are also live-verified. Graphical desktop attachment validation remains pending.
 5. **Complete offline:** cross-platform Node install/uninstall commands use exact
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an
    offline temporary consumer and its plugin export and adapter lifecycle are verified.
 6. **In progress:** the packaged CLI is validated end-to-end against a local fake
    OpenCode executable, and live Go/Zen CLI plus local-path TUI validation has
-   passed. Desktop and attachment flows, the remote three-OS CI result, public
+   passed. Graphical desktop validation, the remote three-OS CI result, public
    distribution, and source-repository policy remain deferred or pending.
 
 Offline CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
