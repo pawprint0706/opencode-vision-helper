@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
@@ -165,6 +168,46 @@ describe("CLI process contract", () => {
     expect(result.stdout).toBe("Summary: Looks good\nIssues: none\n");
     expect(result.stderr).toContain("Warning [SESSION_CLEANUP_FAILED]");
     expect(result.stderr).toContain("Session: retained-session.");
+  });
+
+  it("prints a structured success envelope for --json", async () => {
+    const result = await captureMain(
+      ["analyze", "screen.png", "--model", "opencode-go/vision", "--allow-upload", "--json"],
+      services(),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      status: "ok",
+      model: "opencode-go/vision",
+      report: { summary: "Looks good", issues: [] },
+    });
+    expect(result.stderr).toBe("");
+  });
+
+  it("handles a Unicode path with spaces before any OpenCode request", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "vision-cli-한글 "));
+    const imagePath = join(directory, "깨진 화면.png");
+    try {
+      await writeFile(imagePath, "not an image");
+
+      const result = await runCli([
+        "analyze",
+        imagePath,
+        "--model",
+        "opencode-go/vision",
+        "--allow-upload",
+      ]);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(JSON.parse(result.stderr)).toMatchObject({
+        status: "error",
+        error_code: "BAD_REQUEST",
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("preserves custom provider text and adds only the CLI line terminator", async () => {

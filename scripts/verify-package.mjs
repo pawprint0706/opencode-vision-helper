@@ -2,9 +2,9 @@
 
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -58,6 +58,52 @@ try {
     cwd: consumer,
   });
   assert.match(cli.stdout, /opencode-vision-helper analyze <image>/);
+
+  const fakeBin = join(temporaryRoot, "fake opencode bin");
+  const fakeServer = join(packageRoot, "tests", "fixtures", "fake-opencode.mjs");
+  await mkdir(fakeBin);
+  if (process.platform === "win32") {
+    await writeFile(
+      join(fakeBin, "opencode.cmd"),
+      `@echo off\r\n"${process.execPath}" "${fakeServer}" %*\r\n`,
+    );
+  } else {
+    const executable = join(fakeBin, "opencode");
+    await writeFile(executable, `#!/bin/sh\nexec "${process.execPath}" "${fakeServer}" "$@"\n`);
+    await chmod(executable, 0o755);
+  }
+  const pathKey = Object.keys(process.env).find((key) => key.toLowerCase() === "path") ?? "PATH";
+  const fakeEnvironment = {
+    ...process.env,
+    [pathKey]: `${fakeBin}${delimiter}${process.env[pathKey] ?? ""}`,
+  };
+  const imagePath = join(consumer, "screen 한글.png");
+  const sourceFixture = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64",
+  );
+  await writeFile(imagePath, sourceFixture);
+  const analyzed = await runNpm(
+    [
+      "exec",
+      "--offline",
+      "--",
+      "opencode-vision-helper",
+      "analyze",
+      imagePath,
+      "--model",
+      "opencode-go/vision",
+      "--allow-upload",
+      "--json",
+    ],
+    { cwd: consumer, env: fakeEnvironment },
+  );
+  assert.deepEqual(JSON.parse(analyzed.stdout), {
+    status: "ok",
+    model: "opencode-go/vision",
+    cost: 0.003,
+    report: { summary: "Packaged CLI result", issues: [] },
+  });
 
   await run(
     process.execPath,
