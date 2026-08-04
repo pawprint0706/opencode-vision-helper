@@ -52,20 +52,20 @@ configuration, model metadata, and model-specific wire protocols.
    A subsequent TUI run verified the caller metadata gate with an explicit
    `image: false` Go model and an `image: true` Go model; the latter returned
    `CALLER_VISION_CAPABLE` before any upload permission or delegated analysis.
-5. **Complete offline:** cross-platform Node install/uninstall commands use exact
+5. **Complete locally:** cross-platform Node install/uninstall commands use exact
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an
-   offline temporary consumer and its plugin export and adapter lifecycle are verified.
+   clean temporary consumer and its plugin export and adapter lifecycle are verified.
 6. **Complete for local-only v1:** the packaged CLI is validated end-to-end against a local fake
    OpenCode executable, and live Go/Zen CLI plus TUI and Desktop validation has
    passed. The remote three-OS CI result, public distribution, and source-repository
    policy are outside the current local-only release boundary and remain deferred.
 
-Offline CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
+CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and
 contract tests, runs Biome formatting/lint checks, builds the package, and installs
-the real packed artifact into an offline temporary consumer without starting
-OpenCode or contacting a provider.
+the real packed artifact into a clean temporary consumer without starting
+OpenCode or contacting a model provider.
 
 ## Current safety notes
 

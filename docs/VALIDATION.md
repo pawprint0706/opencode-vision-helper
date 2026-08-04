@@ -1,9 +1,9 @@
 # Validation status
 
-This document separates the completed offline migration evidence from checks that
+This document separates the completed automated migration evidence from checks that
 must not run without explicit user authorization or external repository access.
 
-## Offline gates
+## Automated gates
 
 Run the complete local gate with:
 
@@ -17,16 +17,18 @@ The gate performs:
 - strict TypeScript checks for the library and OpenCode plugin wrapper
 - unit, process-contract, generated-SDK HTTP, cancellation, path, and installer tests
 - package build
-- real `npm pack`, offline temporary-consumer installation, plugin import, generated
+- real `npm pack`, clean temporary-consumer installation, plugin import, generated
   CLI shim execution, fake-OpenCode structured analysis and timeout, and exact
   adapter install/uninstall lifecycle checks
 
-The fake server binds only to `127.0.0.1`. The default gate does not start the real
-OpenCode executable, inspect credentials, contact a provider, or upload an image.
+The fake server binds only to `127.0.0.1`. The temporary consumer may contact the npm
+registry to resolve the packed artifact's declared dependencies. The default gate does
+not start the real OpenCode executable, inspect credentials, contact a model provider,
+or upload an image.
 
 ## Requirement evidence
 
-| Requirement | Offline evidence |
+| Requirement | Automated evidence |
 | --- | --- |
 | Image size, pixel, format, animation, orientation, resize, and corruption boundaries | `tests/imaging.test.ts` |
 | Go/Zen-only model prefix, connection, existence, and image modality | `tests/model.test.ts`, `tests/opencode.test.ts` |

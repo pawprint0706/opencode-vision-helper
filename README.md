@@ -7,7 +7,7 @@ image-capable OpenCode Go or Zen model through the OpenCode SDK.
 ## Status
 
 The CLI and native `vision_analyze` plugin adapter are implemented and covered by
-offline tests. A synthetic fixture has also been validated through the live OpenCode
+automated tests. A synthetic fixture has also been validated through the live OpenCode
 Go and Zen paths, through the installed native tool in the OpenCode TUI for local
 and external paths, through OpenCode's real message-file attachment path, and in the
 OpenCode Desktop file picker and permission UI. Local TUI validation also confirms
@@ -120,7 +120,7 @@ Tests use both focused fake clients and the generated SDK against a local fake
 OpenCode server. They do not read OpenCode credentials or send an image to an
 external provider. OpenCode remains the sole owner of provider authentication.
 
-CI runs the same offline verification on Windows, macOS, and Linux with Node.js
+CI runs the same default verification on Windows, macOS, and Linux with Node.js
 20 and 24. It packs the real artifact, installs it into a temporary consumer,
 imports the plugin export, and exercises install/uninstall without changing the
 consumer's config or auth sentinels. Live provider tests are intentionally excluded.
@@ -128,7 +128,7 @@ consumer's config or auth sentinels. Live provider tests are intentionally exclu
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the active migration plan.
 See [docs/OPENCODE.md](docs/OPENCODE.md) for adapter lifecycle and permission
 examples for the native tool.
-See [docs/VALIDATION.md](docs/VALIDATION.md) for offline evidence and the explicitly
+See [docs/VALIDATION.md](docs/VALIDATION.md) for automated evidence and the explicitly
 authorized live-release checklist.
 
 ## Provenance

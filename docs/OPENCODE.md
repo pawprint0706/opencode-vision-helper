@@ -6,7 +6,7 @@ provider configuration, and model routing remain owned by OpenCode.
 
 The adapter and ownership-safe lifecycle commands are implemented. The package is
 still private and unpublished, but installation from the packed artifact is covered
-by the offline verification suite.
+by the package verification suite.
 
 Before using either the CLI or native tool, connect OpenCode Go or Zen through
 OpenCode's `/connect` flow and choose an image-capable `opencode-go/*` or

@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  offline-verification:
+  verification:
     name: ${{ matrix.os }} / Node ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -35,5 +35,5 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Run offline verification
+      - name: Run verification
         run: npm run verify
