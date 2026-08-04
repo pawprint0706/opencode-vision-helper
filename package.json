@@ -43,8 +43,8 @@
     "verify": "npm run check && npm test && npm run build && npm run verify:package"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.18.12",
-    "@opencode-ai/sdk": "^1.18.12",
+    "@opencode-ai/plugin": "1.18.12",
+    "@opencode-ai/sdk": "1.18.12",
     "sharp": "^0.35.3"
   },
   "devDependencies": {
