@@ -41,8 +41,8 @@ or upload an image.
 | Windows, macOS, and Linux automation definition | `.github/workflows/ci.yml` |
 
 The workflow matrix is configured for all three operating systems with Node.js 20
-and 24. A successful remote CI run is still required as release evidence; this
-local repository currently has no configured remote from which to inspect one.
+and 24. A successful remote CI run is still required as release evidence; the
+`origin` remote is configured, so a push can trigger and expose that run.
 
 ## Live validation record
 
@@ -124,6 +124,48 @@ installation, same-volume placement, and Git initialization. Every attempt timed
 out and removed its project successfully. The unreliable prototype is not shipped;
 the successful TUI and Desktop checks above remain the native live evidence until
 OpenCode's non-interactive plugin path can be reproduced reliably.
+
+On 2026-08-05, a headless `opencode run` session succeeded on macOS with OpenCode
+1.18.13, resolving the stalled-prototype gap. The adapter was installed from the
+local checkout into an isolated temporary project with `--target`, the exact
+printed `file:` dependency was merged and installed with
+`npm install --prefix <project>/.opencode`, and `vision_analyze` was set to
+`allow` in that throwaway project's config (explicitly authorized live test, not
+the recommended `ask` policy). No existing OpenCode configuration or credentials
+were touched. A synthetic PNG (800x400: blue-bordered card, red circle, green
+square, "HELLO 42" heading) was generated with sharp and analyzed twice:
+
+- `opencode run -m opencode-go/deepseek-v4-flash` invoked `vision_analyze` with
+  `model: opencode-go/gpt-5.6-luna`. The delegated analysis correctly described
+  the card, shapes, and text and flagged the heading overflow; the tool reported
+  delegated cost `0.000611425`, and the caller step reported `0.001218`.
+- `opencode run -m opencode-go/gpt-5.6-luna` deliberately forced
+  `vision_analyze` with the same model argument. The tool refused in 2 ms with
+  `CALLER_VISION_CAPABLE`, returning
+  "OpenCode reports that the calling model 'opencode-go/gpt-5.6-luna' accepts
+  image input. Analyze the image directly instead of calling vision_analyze."
+  before any upload permission prompt, delegated cost, or analysis session.
+
+Both sessions, the temporary project, the installed dependency, and the synthetic
+image were removed afterward. The headless path is now reproduced on CLI 1.18.13;
+the earlier 1.18.12 stall is attributed to that version's non-interactive plugin
+path rather than to the adapter.
+
+## macOS package gate fix
+
+During the 2026-08-05 macOS verification, `npm run verify:package` failed in the
+temporary-consumer step with npm `ETARGET`:
+"No matching version found for @opencode-ai/plugin@1.18.12", even though the
+version exists on the registry. `npm view` confirmed `1.18.12` and `1.18.13` are
+published, and a direct `npm install` in a fresh consumer succeeded. The failing
+install used `--prefer-offline` (introduced as the CI-safe replacement for
+`--offline` in commit `ccc2a17`): npm revalidates neither metadata nor tarballs
+with that flag, so a stale local packument for `@opencode-ai/plugin` resolved
+against nothing and produced `ETARGET`. `scripts/verify-package.mjs` now passes
+`--prefer-online`, which revalidates registry metadata while still falling back
+to the cache when the network is unavailable. After the change,
+`npm run verify` completed on macOS: Biome, strict TypeScript, 102 Vitest tests,
+the package build, and the packed-artifact install/lifecycle checks all passed.
 
 ## Deferred validation
 

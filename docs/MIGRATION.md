@@ -52,6 +52,10 @@ configuration, model metadata, and model-specific wire protocols.
    A subsequent TUI run verified the caller metadata gate with an explicit
    `image: false` Go model and an `image: true` Go model; the latter returned
    `CALLER_VISION_CAPABLE` before any upload permission or delegated analysis.
+   Headless `opencode run` sessions on CLI 1.18.13 then reproduced the same two
+   behaviors with `opencode-go/deepseek-v4-flash` (delegated analysis through
+   `opencode-go/gpt-5.6-luna`) and a forced `opencode-go/gpt-5.6-luna` call
+   (refused with `CALLER_VISION_CAPABLE`).
 5. **Complete locally:** cross-platform Node install/uninstall commands use exact
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an

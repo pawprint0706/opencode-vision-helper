@@ -56,7 +56,7 @@ try {
       tarball,
       "--save-exact",
       "--ignore-scripts",
-      "--prefer-offline",
+      "--prefer-online",
       "--no-audit",
       "--no-fund",
     ],

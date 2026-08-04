@@ -12,10 +12,13 @@ Go and Zen paths, through the installed native tool in the OpenCode TUI for loca
 and external paths, through OpenCode's real message-file attachment path, and in the
 OpenCode Desktop file picker and permission UI. Local TUI validation also confirms
 that current OpenCode caller metadata permits an explicitly non-vision model and
-rejects an image-capable caller before upload. The package is not published;
-packed-artifact installation is verified on every `npm run verify`. The local-only
-v1 implementation and validation scope is complete; public distribution remains a
-separate future decision.
+rejects an image-capable caller before upload. Headless `opencode run` sessions on
+CLI 1.18.13 reproduced both behaviors: a vision-limited `opencode-go/deepseek-v4-flash`
+session delegated analysis to `opencode-go/gpt-5.6-luna`, and a forced
+`opencode-go/gpt-5.6-luna` call was refused with `CALLER_VISION_CAPABLE`. The package
+is not published; packed-artifact installation is verified on every `npm run verify`.
+The local-only v1 implementation and validation scope is complete; public
+distribution remains a separate future decision.
 
 The target flow is:
 
