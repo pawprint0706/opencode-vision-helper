@@ -69,6 +69,7 @@ npm install
 npm run check
 npm test
 npm run build
+npm run verify
 node .\dist\cli.js --help
 ```
 
@@ -86,6 +87,9 @@ ownership behavior are documented in [docs/OPENCODE.md](docs/OPENCODE.md).
 
 Tests use a fake SDK client and do not read OpenCode credentials or send an
 image. OpenCode remains the sole owner of provider authentication.
+
+CI runs the same offline verification and package dry-run on Windows, macOS,
+and Linux with Node.js 20 and 24. Live provider tests are intentionally excluded.
 
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the active migration plan.
 See [docs/OPENCODE.md](docs/OPENCODE.md) for adapter lifecycle and permission

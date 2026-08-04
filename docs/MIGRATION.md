@@ -44,6 +44,11 @@ configuration, model metadata, and model-specific wire protocols.
 6. **Pending:** validate CLI and desktop behavior, then decide the source repository's
    maintenance or archive policy separately.
 
+Offline CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
+Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and
+contract tests, builds the package, and verifies `npm pack --dry-run` without
+starting OpenCode or contacting a provider.
+
 ## Current safety notes
 
 - The core requires an explicit upload-approval flag even when it is called
