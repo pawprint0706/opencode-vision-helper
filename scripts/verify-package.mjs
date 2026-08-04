@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,9 +27,9 @@ async function runNpm(args, options = {}) {
     : run(npmCommand, args, options);
 }
 
-async function failedNpm(args, options = {}) {
+async function failedRun(command, args, options = {}) {
   try {
-    await runNpm(args, options);
+    await run(command, args, options);
   } catch (error) {
     return error;
   }
@@ -63,9 +63,19 @@ try {
     { cwd: consumer },
   );
 
-  const cli = await runNpm(["exec", "--offline", "--", "opencode-vision-helper", "--help"], {
-    cwd: consumer,
-  });
+  const installedPackage = join(consumer, "node_modules", "opencode-vision-helper");
+  const cliEntry = join(installedPackage, "dist", "cli.js");
+  const cliShim = join(
+    consumer,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "opencode-vision-helper.cmd" : "opencode-vision-helper",
+  );
+  await access(cliShim);
+  const runInstalledCli = (args, options = {}) =>
+    run(process.execPath, [cliEntry, ...args], { cwd: consumer, ...options });
+
+  const cli = await runInstalledCli(["--help"]);
   assert.match(cli.stdout, /opencode-vision-helper analyze <image>/);
 
   const fakeBin = join(temporaryRoot, "fake opencode bin");
@@ -92,19 +102,8 @@ try {
     "base64",
   );
   await writeFile(imagePath, sourceFixture);
-  const analyzed = await runNpm(
-    [
-      "exec",
-      "--offline",
-      "--",
-      "opencode-vision-helper",
-      "analyze",
-      imagePath,
-      "--model",
-      "opencode-go/vision",
-      "--allow-upload",
-      "--json",
-    ],
+  const analyzed = await runInstalledCli(
+    ["analyze", imagePath, "--model", "opencode-go/vision", "--allow-upload", "--json"],
     { cwd: consumer, env: fakeEnvironment },
   );
   assert.deepEqual(JSON.parse(analyzed.stdout), {
@@ -115,12 +114,10 @@ try {
   });
 
   await new Promise((resolve) => setTimeout(resolve, 100));
-  const timedOut = await failedNpm(
+  const timedOut = await failedRun(
+    process.execPath,
     [
-      "exec",
-      "--offline",
-      "--",
-      "opencode-vision-helper",
+      cliEntry,
       "analyze",
       imagePath,
       "--model",
@@ -149,7 +146,6 @@ try {
     { cwd: consumer },
   );
 
-  const installedPackage = join(consumer, "node_modules", "opencode-vision-helper");
   const target = join(consumer, "OpenCode Config", ".opencode");
   const configPath = join(target, "opencode.json");
   const authPath = join(target, "auth.json");

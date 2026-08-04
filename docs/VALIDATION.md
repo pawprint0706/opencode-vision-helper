@@ -18,8 +18,8 @@ The gate performs:
 - unit, process-contract, generated-SDK HTTP, cancellation, path, and installer tests
 - package build
 - real `npm pack`, clean temporary-consumer installation, plugin import, generated
-  CLI shim execution, fake-OpenCode structured analysis and timeout, and exact
-  adapter install/uninstall lifecycle checks
+  CLI shim presence, installed CLI execution, fake-OpenCode structured analysis and
+  timeout, and exact adapter install/uninstall lifecycle checks
 
 The fake server binds only to `127.0.0.1`. The temporary consumer may contact the npm
 registry to resolve the packed artifact's declared dependencies. The default gate does
