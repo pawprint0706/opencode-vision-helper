@@ -119,9 +119,11 @@ temporary analysis session on a best-effort basis.
 ## Permission policy
 
 `vision_analyze` uploads the selected image to the configured OpenCode Go or Zen
-cloud model. `ask` is the recommended default because the approval UI shows the
-tool arguments before each call. Use `allow` only in a trusted workflow where
-automatic image transmission is intentional.
+cloud model. The adapter calls OpenCode's permission API immediately before cloud
+analysis. `ask` is the recommended default because it presents an approval UI for
+each model call. `deny` removes the tool from that agent's available tool set. Use
+`allow` only in a trusted workflow where automatic image transmission is
+intentional.
 
 Agent-specific rules can expose the tool only to a vision-limited agent:
 

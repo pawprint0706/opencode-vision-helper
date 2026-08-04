@@ -35,18 +35,20 @@ configuration, model metadata, and model-specific wire protocols.
    and stable error output.
 3. **Complete:** implement `analyze` and `doctor`; both provider identities passed
    the guarded live CLI smoke test.
-4. **Complete offline:** the `vision_analyze` plugin adapter reuses the current
-   OpenCode server, resolves external paths through permission requests, and has
-   `ask`/`deny` examples. It can resolve the current/parent message's sole local or
-   base64 image attachment. Live TUI and desktop validation remains pending.
+4. **Complete for local-path TUI:** the `vision_analyze` plugin adapter reuses the
+   authenticated client supplied by the current OpenCode server, requests upload
+   permission before analysis, and resolves external paths through a separate
+   permission request. A live TUI run verified the `ask` prompt, one-time approval,
+   successful analysis, tool-free child session, and `deny` removal. Live desktop
+   and attachment flows remain pending.
 5. **Complete offline:** cross-platform Node install/uninstall commands use exact
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an
    offline temporary consumer and its plugin export and adapter lifecycle are verified.
 6. **In progress:** the packaged CLI is validated end-to-end against a local fake
-   OpenCode executable. Live Go/Zen, TUI/desktop permissions and attachments, the
-   remote three-OS CI result, distribution, and source-repository policy still need
-   explicit authorization or decisions.
+   OpenCode executable, and live Go/Zen CLI plus local-path TUI validation has
+   passed. Desktop and attachment flows, the remote three-OS CI result, public
+   distribution, and source-repository policy remain deferred or pending.
 
 Offline CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and
@@ -57,8 +59,8 @@ OpenCode or contacting a provider.
 ## Current safety notes
 
 - The core requires an explicit upload-approval flag even when it is called
-  outside the CLI. The native adapter supplies it only after OpenCode has allowed
-  the `vision_analyze` tool call.
+  outside the CLI. The native adapter explicitly requests OpenCode's
+  `vision_analyze` permission immediately before it supplies that approval.
 - Image paths are canonicalized before reading. Native calls request
   `external_directory` permission when the resolved target is outside the worktree.
 - SDK file parts use only the local basename rather than transmitting an absolute
@@ -68,6 +70,8 @@ OpenCode or contacting a provider.
 - SDK and provider failures are mapped to stable, sanitized errors. A cleanup
   failure after successful analysis returns a warning and retained session ID
   instead of hiding the orphaned session or encouraging a duplicate paid retry.
+  Native failures also include a safe stage label without exposing provider URLs,
+  credentials, or raw SDK error bodies.
 
 ## Source assets
 

@@ -8,8 +8,9 @@ image-capable OpenCode Go or Zen model through the OpenCode SDK.
 
 The CLI and native `vision_analyze` plugin adapter are implemented and covered by
 offline tests. A synthetic fixture has also been validated through the live OpenCode
-Go and Zen paths. The package is not published; local packed-artifact installation
-is verified on every `npm run verify`.
+Go and Zen paths and through the installed native tool in the OpenCode TUI. The
+package is not published; local packed-artifact installation is verified on every
+`npm run verify`.
 
 The target flow is:
 
@@ -59,7 +60,9 @@ URLs are not part of v1.
 The native tool can use an explicit local path or, when `image` is omitted, the
 sole image attached to the current OpenCode user message. Local/file URL
 attachments follow canonical path permissions; base64 image data is normalized
-in memory without creating a temporary file.
+in memory without creating a temporary file. Immediately before cloud analysis,
+the tool requests OpenCode's `vision_analyze` permission for the selected model;
+`ask` is the recommended policy and `deny` prevents the tool from being exposed.
 
 Analysis times out after 120 seconds by default. `--timeout` accepts 1 to 1800
 seconds. `Ctrl+C` aborts the provider operation, then the helper attempts to stop

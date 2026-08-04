@@ -33,7 +33,7 @@ OpenCode executable, inspect credentials, contact a provider, or upload an image
 | Strict report and free-form text preservation | `tests/report.test.ts`, `tests/opencode-http.test.ts` |
 | SDK routes, file part, schema retry request, tool disabling, cleanup, errors, and cancellation | `tests/opencode-http.test.ts` |
 | CLI stdout/stderr/exit, human/JSON/text output, Unicode paths, and timeout | `tests/cli.test.ts`, `scripts/verify-package.mjs` |
-| Native tool registration, attachments, external-path permission, and approved core handoff | `tests/tool.test.ts`, `tests/attachment.test.ts` |
+| Native tool registration, SDK client bridge, upload/external-path permissions, attachments, and approved core handoff | `tests/tool.test.ts`, `tests/attachment.test.ts` |
 | Exact install ownership, symlink/junction containment, rollback, modification preservation, and recovery | `tests/install.test.ts`, `scripts/verify-package.mjs` |
 | No OpenCode config/auth mutation during packaged adapter lifecycle | config/auth sentinels in `scripts/verify-package.mjs` |
 | Windows, macOS, and Linux automation definition | `.github/workflows/ci.yml` |
@@ -57,24 +57,38 @@ These model IDs, costs, and response times are observations from one run, not st
 guarantees. The script deletes its temporary fixture and requires `--allow-live`,
 `--go-model`, and `--zen-model`; it is excluded from the default test gate.
 
-## Remaining explicitly authorized validation
+The project-scoped adapter was then installed from the local checkout and loaded by
+OpenCode 1.18.12. A vision-limited `opencode-go/kimi-k2.7-code` TUI session called
+`vision_analyze` for the same synthetic local fixture using
+`opencode-go/gpt-5.6-luna`. The first implementation exposed a separately created
+SDK client failure at the safe `provider discovery` stage; switching the adapter to
+the authenticated client supplied by OpenCode resolved it. The final run verified:
+
+- `ask` displayed `Permission required` before the analysis session was created
+- `Allow once` completed analysis and found the intentionally clipped save button
+- the child analysis session had wildcard tool permission set to `deny`
+- a fresh session with `vision_analyze: deny` did not expose or invoke the tool
+- the ownership-checked uninstaller removed its wrapper and manifest afterward
+
+Only the generated synthetic image was sent. The temporary project package/config,
+OpenCode-installed dependencies, and persistent fixture were removed after the
+test; no credential file was read or changed.
+
+## Remaining local validation
 
 The following checks remain intentionally unexecuted:
 
-1. Install the adapter into an explicitly selected test project, merge only the
-   printed package and permission snippets, and restart OpenCode.
-2. From a vision-limited agent, verify `vision_analyze` with `ask`; separately
-   verify intentional `allow` and a vision-capable agent's `deny` rule. Confirm the
-   analysis session cannot call any tool, including `vision_analyze` recursively.
-3. In the actual TUI/desktop client, verify local, external-directory, and attached
+1. In the actual TUI/desktop client, verify the external-directory and attached
    image flows and their approval UI.
-4. Observe a green Windows/macOS/Linux CI matrix for the release candidate.
+2. Optionally verify an intentional `allow` policy in a dedicated trusted test
+   project; `ask` remains the recommended default.
+3. Observe a green Windows/macOS/Linux CI matrix for the release candidate.
 
-These checks can transmit images, incur provider cost, inspect provider connection
-state through OpenCode, or change OpenCode project configuration. They require the
-user to approve the fixture, model IDs, installation scope, and permission policy
-first. Credentials remain owned by OpenCode and must never be copied into this
-project or recorded in validation output.
+Live checks can transmit images, incur provider cost, inspect provider connection
+state through OpenCode, or change OpenCode project configuration. Current work is
+limited to the user's authorized synthetic fixtures, TUI-first validation, and local
+distribution testing. Credentials remain owned by OpenCode and must never be copied
+into this project or recorded in validation output.
 
 ## Distribution decisions
 
