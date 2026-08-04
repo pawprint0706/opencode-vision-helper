@@ -3,3 +3,4 @@ export * from "./imaging.js";
 export * from "./model.js";
 export * from "./opencode.js";
 export * from "./report.js";
+export * from "./tool.js";

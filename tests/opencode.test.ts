@@ -115,6 +115,7 @@ describe("OpenCode SDK contract", () => {
       model: "opencode-go/vision",
       prompt: "Inspect the UI.",
       structured: true,
+      uploadApproved: true,
     });
 
     expect(result).toEqual({
@@ -139,6 +140,9 @@ describe("OpenCode SDK contract", () => {
       format: { schema?: unknown };
     };
     expect(prompt.parts[1]?.url).toBe("data:image/png;base64,aW1hZ2U=");
+    expect(calls.prompt).toMatchObject({
+      parts: [{ type: "text" }, { filename: "screen.png" }],
+    });
     expect(prompt.format.schema).toBeDefined();
     expect(calls.delete).toEqual({
       sessionID: "session-1",
@@ -155,6 +159,7 @@ describe("OpenCode SDK contract", () => {
         model: "opencode-go/vision",
         prompt: "Read the visible heading.",
         structured: false,
+        uploadApproved: true,
         keepSession: true,
       }),
     ).resolves.toEqual({
@@ -164,5 +169,20 @@ describe("OpenCode SDK contract", () => {
       text: "  custom result  ",
     });
     expect(calls.delete).toBeUndefined();
+  });
+
+  it("rejects an unapproved core upload before making SDK calls", async () => {
+    const { calls, client } = fakeClient(true);
+    await expect(
+      analyzeWithClient(client, {
+        directory: "C:\\project",
+        image,
+        model: "opencode-go/vision",
+        prompt: "Inspect the UI.",
+        structured: true,
+        uploadApproved: false,
+      }),
+    ).rejects.toMatchObject({ code: "UPLOAD_NOT_APPROVED" });
+    expect(calls).toEqual({});
   });
 });

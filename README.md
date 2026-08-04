@@ -6,9 +6,9 @@ image-capable OpenCode Go or Zen model through the OpenCode SDK.
 
 ## Status
 
-The first CLI migration slice is implemented and covered by offline tests. No
-installer is published, and the SDK request has not yet been validated against
-a live Go or Zen account.
+The CLI and native `vision_analyze` plugin adapter are implemented and covered by
+offline tests. No installer is published, and the SDK request has not yet been
+validated against a live Go or Zen account.
 
 The target flow is:
 
@@ -65,6 +65,8 @@ Tests use a fake SDK client and do not read OpenCode credentials or send an
 image. OpenCode remains the sole owner of provider authentication.
 
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the active migration plan.
+See [docs/OPENCODE.md](docs/OPENCODE.md) for manual development registration and
+permission examples for the native tool.
 
 ## Provenance
 

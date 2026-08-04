@@ -11,6 +11,16 @@
   "bin": {
     "opencode-vision-helper": "dist/cli.js"
   },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.js"
+    }
+  },
   "files": [
     "dist",
     "opencode",
@@ -19,12 +29,13 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.opencode.json --noEmit",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@opencode-ai/plugin": "^1.18.12",
     "@opencode-ai/sdk": "^1.18.12",
     "sharp": "^0.35.3"
   },

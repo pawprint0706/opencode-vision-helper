@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import sharp from "sharp";
@@ -30,7 +30,15 @@ export async function prepareImage(
   inputPath: string,
   options: PrepareImageOptions = {},
 ): Promise<PreparedImage> {
-  const imagePath = resolve(inputPath);
+  const unresolvedPath = resolve(inputPath);
+  let imagePath: string;
+  try {
+    imagePath = await realpath(unresolvedPath);
+  } catch (error) {
+    throw new AppError("BAD_REQUEST", `Image file does not exist: ${unresolvedPath}`, {
+      cause: error,
+    });
+  }
   let info;
   try {
     info = await stat(imagePath);

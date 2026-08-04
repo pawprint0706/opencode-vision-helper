@@ -3,6 +3,7 @@ import {
   type OpencodeClient,
   type Provider,
 } from "@opencode-ai/sdk/v2";
+import { basename } from "node:path";
 
 import { AppError } from "./errors.js";
 import { imageDataUrl, type PreparedImage } from "./imaging.js";
@@ -39,10 +40,14 @@ type ProviderState = {
   connected: string[];
 };
 
-async function providerState(client: OpencodeClient, directory: string): Promise<ProviderState> {
+async function providerState(
+  client: OpencodeClient,
+  directory: string,
+  signal?: AbortSignal,
+): Promise<ProviderState> {
   const response = await client.provider.list(
     { directory },
-    { throwOnError: true },
+    signal ? { throwOnError: true, signal } : { throwOnError: true },
   );
   return { providers: response.data.all, connected: response.data.connected };
 }
@@ -57,10 +62,11 @@ export function validateModel(
 async function disabledTools(
   client: OpencodeClient,
   directory: string,
+  signal?: AbortSignal,
 ): Promise<Record<string, boolean>> {
   const response = await client.tool.ids(
     { directory },
-    { throwOnError: true },
+    signal ? { throwOnError: true, signal } : { throwOnError: true },
   );
   return Object.fromEntries(response.data.map((id) => [id, false]));
 }
@@ -112,6 +118,7 @@ export type AnalyzeOptions = {
   model: string;
   prompt: string;
   structured: boolean;
+  uploadApproved: boolean;
   keepSession?: boolean;
   signal?: AbortSignal;
 };
@@ -124,10 +131,16 @@ export async function analyzeWithClient(
   client: OpencodeClient,
   options: AnalyzeOptions,
 ): Promise<AnalysisResult> {
+  if (!options.uploadApproved) {
+    throw new AppError(
+      "UPLOAD_NOT_APPROVED",
+      "Analysis requires explicit approval to upload the selected image.",
+    );
+  }
   const ref = parseModelRef(options.model);
-  const state = await providerState(client, options.directory);
+  const state = await providerState(client, options.directory, options.signal);
   validateModel(ref, state);
-  const tools = await disabledTools(client, options.directory);
+  const tools = await disabledTools(client, options.directory, options.signal);
   const created = await client.session.create(
     {
       directory: options.directory,
@@ -136,7 +149,9 @@ export async function analyzeWithClient(
       permission: [{ permission: "*", pattern: "*", action: "deny" }],
       metadata: { service: "opencode-vision-helper" },
     },
-    { throwOnError: true },
+    options.signal
+      ? { throwOnError: true, signal: options.signal }
+      : { throwOnError: true },
   );
   const sessionID = created.data.id;
   try {
@@ -160,7 +175,7 @@ export async function analyzeWithClient(
           {
             type: "file",
             mime: options.image.mime,
-            filename: options.image.path,
+            filename: basename(options.image.path),
             url: imageDataUrl(options.image),
           },
         ],

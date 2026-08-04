@@ -92,6 +92,7 @@ async function runAnalyze(args: string[]): Promise<number> {
     model,
     prompt: parsed.prompt ?? DEFAULT_PROMPT,
     structured,
+    uploadApproved: parsed.allowUpload,
     keepSession: parsed.keepSession,
   });
   if (parsed.json) {

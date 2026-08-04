@@ -34,11 +34,22 @@ configuration, model metadata, and model-specific wire protocols.
    and stable error output.
 3. **Complete offline:** implement `analyze` and `doctor`; live account smoke
    testing remains intentionally pending.
-4. **Next:** add the native OpenCode adapter and permission examples for vision-limited
-   agents.
+4. **Complete offline:** the `vision_analyze` plugin adapter reuses the current
+   OpenCode server, resolves external paths through permission requests, and has
+   `ask`/`deny` examples. Live TUI and desktop validation remains pending.
 5. **Pending:** add ownership-safe cross-platform install and uninstall flows.
 6. **Pending:** validate CLI and desktop behavior, then decide the source repository's
    maintenance or archive policy separately.
+
+## Current safety notes
+
+- The core requires an explicit upload-approval flag even when it is called
+  outside the CLI. The native adapter supplies it only after OpenCode has allowed
+  the `vision_analyze` tool call.
+- Image paths are canonicalized before reading. Native calls request
+  `external_directory` permission when the resolved target is outside the worktree.
+- SDK file parts use only the local basename rather than transmitting an absolute
+  local path as the filename.
 
 ## Source assets
 

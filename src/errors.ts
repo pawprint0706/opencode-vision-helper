@@ -62,6 +62,5 @@ export function asAppError(error: unknown): AppError {
   if (error instanceof AppError) {
     return error;
   }
-  const message = error instanceof Error ? error.message : "Unknown error";
-  return new AppError("UNKNOWN", message, { cause: error });
+  return new AppError("UNKNOWN", "Unexpected internal error.", { cause: error });
 }

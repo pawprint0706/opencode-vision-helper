@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "paths": {
+      "opencode-vision-helper/plugin": ["./src/plugin.ts"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "opencode/**/*.ts"
+  ]
+}
