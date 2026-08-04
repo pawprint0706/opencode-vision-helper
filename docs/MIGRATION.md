@@ -36,7 +36,8 @@ configuration, model metadata, and model-specific wire protocols.
    testing remains intentionally pending.
 4. **Complete offline:** the `vision_analyze` plugin adapter reuses the current
    OpenCode server, resolves external paths through permission requests, and has
-   `ask`/`deny` examples. Live TUI and desktop validation remains pending.
+   `ask`/`deny` examples. It can resolve the current/parent message's sole local or
+   base64 image attachment. Live TUI and desktop validation remains pending.
 5. **Complete offline:** cross-platform Node install/uninstall commands use exact
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. Release-package validation remains pending.

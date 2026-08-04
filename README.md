@@ -50,6 +50,11 @@ in scope. All OpenCode tools and session permissions are disabled for the
 analysis session. MCP, screen capture, desktop control, and arbitrary provider
 URLs are not part of v1.
 
+The native tool can use an explicit local path or, when `image` is omitted, the
+sole image attached to the current OpenCode user message. Local/file URL
+attachments follow canonical path permissions; base64 image data is normalized
+in memory without creating a temporary file.
+
 Analysis times out after 120 seconds by default. `--timeout` accepts 1 to 1800
 seconds. `Ctrl+C` aborts the provider operation, then the helper attempts to stop
 and remove its temporary OpenCode session. If analysis succeeds but session

@@ -1,5 +1,5 @@
 import { realpath, stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 import sharp from "sharp";
 
@@ -57,20 +57,45 @@ export async function prepareImage(
     );
   }
 
+  return prepareImageSource(imagePath, imagePath, options);
+}
+
+export async function prepareImageBuffer(
+  input: Uint8Array,
+  filename = "attachment",
+  options: PrepareImageOptions = {},
+): Promise<PreparedImage> {
+  const bytes = Buffer.from(input);
+  if (bytes.length > MAX_INPUT_BYTES) {
+    throw new AppError(
+      "BAD_REQUEST",
+      `Image is too large (${bytes.length} bytes; limit ${MAX_INPUT_BYTES}).`,
+    );
+  }
+  const sourceName = basename(filename) || "attachment";
+  return prepareImageSource(bytes, sourceName, options);
+}
+
+async function prepareImageSource(
+  input: string | Buffer,
+  sourceName: string,
+  options: PrepareImageOptions,
+): Promise<PreparedImage> {
+
   const maxLongEdge = options.maxLongEdge ?? DEFAULT_MAX_LONG_EDGE;
   if (!Number.isInteger(maxLongEdge) || maxLongEdge < 64 || maxLongEdge > 8192) {
     throw new AppError("BAD_REQUEST", "maxLongEdge must be an integer from 64 to 8192.");
   }
 
   try {
-    const source = sharp(imagePath, {
+    const source = sharp(input, {
       failOn: "error",
       limitInputPixels: MAX_IMAGE_PIXELS,
       sequentialRead: true,
     });
     const metadata = await source.metadata();
     if (!metadata.width || !metadata.height || !metadata.format) {
-      throw new AppError("BAD_REQUEST", `Cannot determine image metadata: ${imagePath}`);
+      throw new AppError("BAD_REQUEST", `Cannot determine image metadata: ${sourceName}`);
     }
     if (!ALLOWED_FORMATS.has(metadata.format)) {
       throw new AppError(
@@ -113,7 +138,7 @@ export async function prepareImage(
       : await pipeline.png().toBuffer({ resolveWithObject: true });
 
     return {
-      path: imagePath,
+      path: sourceName,
       bytes: output.data,
       mime: useJpeg ? "image/jpeg" : "image/png",
       width: output.info.width,
@@ -125,7 +150,7 @@ export async function prepareImage(
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError("BAD_REQUEST", `Cannot decode image '${imagePath}'.`, {
+    throw new AppError("BAD_REQUEST", `Cannot decode image '${sourceName}'.`, {
       cause: error,
     });
   }

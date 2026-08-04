@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 
 import type { PluginInput, ToolContext } from "@opencode-ai/plugin";
-import type { OpencodeClient } from "@opencode-ai/sdk/v2";
+import type { OpencodeClient, Part } from "@opencode-ai/sdk/v2";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PreparedImage } from "../src/imaging.js";
@@ -114,6 +114,82 @@ describe("vision_analyze native tool", () => {
         permission: "external_directory",
         patterns: [external],
       }),
+    );
+  });
+
+  it("uses the current message's sole data attachment when image is omitted", async () => {
+    const directory = resolve("project");
+    const prepareImageBuffer = vi.fn(async () => image);
+    const messageParts = vi.fn(async (): Promise<Part[]> => [
+      {
+        id: "part-1",
+        sessionID: "parent-session",
+        messageID: "message-1",
+        type: "file",
+        mime: "image/png",
+        filename: "attached.png",
+        url: "data:image/png;base64,aW1hZ2U=",
+      },
+    ]);
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      {
+        messageParts,
+        prepareImageBuffer,
+        analyze: async () => ({ model: "opencode-go/vision", text: "attached result" }),
+      },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    await expect(
+      definition.execute({ prompt: "Read it." }, context(directory).value),
+    ).resolves.toMatchObject({ output: "attached result" });
+    expect(messageParts).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ sessionID: "parent-session", messageID: "message-1" }),
+      expect.any(AbortSignal),
+    );
+    expect(prepareImageBuffer).toHaveBeenCalledWith(Buffer.from("image"), "attached.png");
+  });
+
+  it("follows an assistant tool-call message to its parent user attachment", async () => {
+    const directory = resolve("project");
+    const message = vi.fn(async ({ messageID }: { messageID: string }) => ({
+      data: messageID === "message-1"
+        ? {
+            info: { role: "assistant", parentID: "user-message" },
+            parts: [],
+          }
+        : {
+            info: { role: "user" },
+            parts: [{
+              id: "part-1",
+              sessionID: "parent-session",
+              messageID: "user-message",
+              type: "file",
+              mime: "image/png",
+              filename: "parent.png",
+              url: "data:image/png;base64,aW1hZ2U=",
+            }],
+          },
+    }));
+    const client = { session: { message } } as unknown as OpencodeClient;
+    const definition = createVisionAnalyzeTool(
+      client,
+      {
+        prepareImageBuffer: async () => image,
+        analyze: async () => ({ model: "opencode-go/vision", text: "parent result" }),
+      },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    await expect(
+      definition.execute({ prompt: "Read it." }, context(directory).value),
+    ).resolves.toMatchObject({ output: "parent result" });
+    expect(message).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ messageID: "user-message" }),
+      expect.objectContaining({ throwOnError: true }),
     );
   });
 

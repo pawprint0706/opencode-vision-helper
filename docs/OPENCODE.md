@@ -128,17 +128,23 @@ canonical file, sends only its basename as the SDK file-part filename, creates a
 separate analysis session, disables every discovered tool, and deletes the analysis
 session after completion.
 
+When `image` is omitted, the adapter reads the tool-call message and its parent user
+message through the current OpenCode server. Exactly one `image/*` attachment is
+required. Local source paths and `file:` URLs use the same path checks; strict base64
+`data:` URLs are decoded and normalized in memory. Remote HTTP/blob URLs are not
+fetched, and multiple attachments require an explicit local `image` path.
+
 ## Tool arguments
 
 ```json
 {
-  "image": "absolute-or-session-relative-path",
+  "image": "optional absolute-or-session-relative-path",
   "prompt": "optional question",
   "model": "optional opencode-go/... or opencode/..."
 }
 ```
 
 Omitting `prompt` returns the validated UI issue report. A custom prompt returns
-the model's text without trimming or reinterpretation. Errors use the CLI's stable
-JSON error fields. Desktop attachment discovery is not implemented; v1 currently
-requires an existing local path.
+the model's text without trimming or reinterpretation. Omitting `image` selects the
+current message's sole supported image attachment. Errors use the CLI's stable JSON
+error fields.

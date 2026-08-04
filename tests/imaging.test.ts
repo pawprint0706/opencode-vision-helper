@@ -6,7 +6,7 @@ import sharp from "sharp";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AppError } from "../src/errors.js";
-import { imageDataUrl, prepareImage } from "../src/imaging.js";
+import { imageDataUrl, prepareImage, prepareImageBuffer } from "../src/imaging.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -57,5 +57,20 @@ describe("image preparation", () => {
       .png()
       .toFile(imagePath);
     await expect(prepareImage(imagePath, { maxLongEdge: 0 })).rejects.toThrow(/64 to 8192/);
+  });
+
+  it("normalizes an in-memory message attachment without a temporary file", async () => {
+    const input = await sharp({
+      create: { width: 20, height: 10, channels: 4, background: "blue" },
+    })
+      .webp()
+      .toBuffer();
+    const prepared = await prepareImageBuffer(input, "desktop-upload.webp");
+    expect(prepared).toMatchObject({
+      path: "desktop-upload.webp",
+      width: 20,
+      height: 10,
+      mime: "image/png",
+    });
   });
 });
