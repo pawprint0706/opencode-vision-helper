@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const OWNER = "opencode-vision-helper";
@@ -30,6 +30,76 @@ async function readOptional(path) {
       return undefined;
     }
     throw error;
+  }
+}
+
+async function lstatOptional(path) {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function isWithin(parent, child) {
+  const difference = relative(parent, child);
+  return difference === "" ||
+    (!isAbsolute(difference) && difference !== ".." && !difference.startsWith(`..${sep}`));
+}
+
+async function assertSafePluginDirectory(target, { create }) {
+  try {
+    if (create) {
+      await mkdir(target, { recursive: true });
+    }
+    const canonicalTarget = await realpath(target);
+    const pluginDirectory = dirname(resolve(target, PLUGIN_RELATIVE_PATH));
+    if (create) {
+      await mkdir(pluginDirectory, { recursive: true });
+    }
+    let canonicalPluginDirectory;
+    try {
+      canonicalPluginDirectory = await realpath(pluginDirectory);
+    } catch (error) {
+      if (!create && error && typeof error === "object" && error.code === "ENOENT") {
+        return true;
+      }
+      throw error;
+    }
+    if (!isWithin(canonicalTarget, canonicalPluginDirectory)) {
+      throw new InstallError(
+        "OWNERSHIP_CONFLICT",
+        `Plugin directory resolves outside the selected OpenCode target: ${pluginDirectory}`,
+      );
+    }
+    return true;
+  } catch (error) {
+    if (!create && error && typeof error === "object" && error.code === "ENOENT") {
+      return false;
+    }
+    if (error instanceof InstallError) {
+      throw error;
+    }
+    throw new InstallError(
+      create ? "INSTALL_FAILED" : "UNINSTALL_FAILED",
+      `Could not verify the selected OpenCode target safely: ${target}`,
+      { cause: error },
+    );
+  }
+}
+
+async function assertRegularOwnedFile(path, entry, label) {
+  if (!entry) {
+    return;
+  }
+  if (!entry.isFile() || entry.isSymbolicLink()) {
+    throw new InstallError(
+      "OWNERSHIP_CONFLICT",
+      `${label} is not a regular owned file and will not be changed: ${path}`,
+    );
   }
 }
 
@@ -110,10 +180,15 @@ export async function installAdapter(options = {}) {
   const packageSpec = options.packageSpec ?? `file:${info.packageRoot.replaceAll("\\", "/")}`;
   const pluginPath = resolve(target, PLUGIN_RELATIVE_PATH);
   const manifestPath = resolve(target, MANIFEST_FILENAME);
-  const [existingPlugin, existingManifest] = await Promise.all([
+  await assertSafePluginDirectory(target, { create: true });
+  const [pluginEntry, manifestEntry, existingPlugin, existingManifest] = await Promise.all([
+    lstatOptional(pluginPath),
+    lstatOptional(manifestPath),
     readOptional(pluginPath),
     readOptional(manifestPath),
   ]);
+  await assertRegularOwnedFile(pluginPath, pluginEntry, "Plugin path");
+  await assertRegularOwnedFile(manifestPath, manifestEntry, "Install manifest");
 
   if (existingManifest !== undefined) {
     const manifest = parseManifest(existingManifest);
@@ -177,11 +252,27 @@ export async function installAdapter(options = {}) {
       { encoding: "utf8", flag: "wx" },
     );
   } catch (error) {
+    let rollbackFailure;
     if (pluginCreated) {
       const current = await readOptional(pluginPath);
-      if (current !== undefined && sha256(current) === pluginHash) {
-        await rm(pluginPath).catch(() => undefined);
+      if (current !== undefined) {
+        if (sha256(current) !== pluginHash) {
+          rollbackFailure = new Error("The newly-created plugin changed during installation.");
+        } else {
+          try {
+            await rm(pluginPath);
+          } catch (removeError) {
+            rollbackFailure = removeError;
+          }
+        }
       }
+    }
+    if (rollbackFailure) {
+      throw new InstallError(
+        "ROLLBACK_INCOMPLETE",
+        `Installation failed and the plugin could not be rolled back safely: ${pluginPath}`,
+        { cause: new AggregateError([error, rollbackFailure]) },
+      );
     }
     if (error instanceof InstallError) {
       throw error;
@@ -204,10 +295,18 @@ export async function uninstallAdapter(options = {}) {
   const target = resolveInstallTarget(options);
   const pluginPath = resolve(target, PLUGIN_RELATIVE_PATH);
   const manifestPath = resolve(target, MANIFEST_FILENAME);
-  const [existingPlugin, existingManifest] = await Promise.all([
+  const targetExists = await assertSafePluginDirectory(target, { create: false });
+  if (!targetExists) {
+    return { status: "not-installed", target, pluginPath, manifestPath };
+  }
+  const [pluginEntry, manifestEntry, existingPlugin, existingManifest] = await Promise.all([
+    lstatOptional(pluginPath),
+    lstatOptional(manifestPath),
     readOptional(pluginPath),
     readOptional(manifestPath),
   ]);
+  await assertRegularOwnedFile(pluginPath, pluginEntry, "Plugin path");
+  await assertRegularOwnedFile(manifestPath, manifestEntry, "Install manifest");
 
   if (existingManifest === undefined) {
     if (existingPlugin !== undefined) {

@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -108,6 +115,40 @@ describe("ownership-safe adapter lifecycle", () => {
     expect(await readFile(manifestPath, "utf8")).toBe("external race winner\n");
   });
 
+  it("reports an incomplete rollback without deleting a concurrently changed plugin", async () => {
+    const target = join(temporaryRoot, ".opencode");
+    const pluginPath = join(target, PLUGIN_RELATIVE_PATH);
+    await expect(
+      installAdapter({
+        target,
+        packageRoot,
+        beforeManifestWrite: async () => {
+          await writeFile(pluginPath, "// changed during install\n");
+          throw new Error("manifest write failed");
+        },
+      }),
+    ).rejects.toMatchObject({ code: "ROLLBACK_INCOMPLETE" });
+    expect(await readFile(pluginPath, "utf8")).toBe("// changed during install\n");
+    expect(await pathExists(join(target, MANIFEST_FILENAME))).toBe(false);
+  });
+
+  it("refuses a plugin directory that resolves outside the selected target", async () => {
+    const target = join(temporaryRoot, ".opencode");
+    const outside = join(temporaryRoot, "outside");
+    const pluginDirectory = join(target, "plugins");
+    await mkdir(target, { recursive: true });
+    await mkdir(outside, { recursive: true });
+    await symlink(outside, pluginDirectory, process.platform === "win32" ? "junction" : "dir");
+
+    await expect(installAdapter({ target, packageRoot })).rejects.toMatchObject({
+      code: "OWNERSHIP_CONFLICT",
+    });
+    expect(await pathExists(join(outside, "vision-helper.ts"))).toBe(false);
+    await expect(uninstallAdapter({ target })).rejects.toMatchObject({
+      code: "OWNERSHIP_CONFLICT",
+    });
+  });
+
   it("refuses to remove a modified owned plugin", async () => {
     const target = join(temporaryRoot, ".opencode");
     const pluginPath = join(target, PLUGIN_RELATIVE_PATH);
@@ -119,6 +160,19 @@ describe("ownership-safe adapter lifecycle", () => {
     });
     expect(await pathExists(pluginPath)).toBe(true);
     expect(await pathExists(join(target, MANIFEST_FILENAME))).toBe(true);
+  });
+
+  it("treats line-ending or BOM changes as user modifications", async () => {
+    const target = join(temporaryRoot, ".opencode");
+    const pluginPath = join(target, PLUGIN_RELATIVE_PATH);
+    await installAdapter({ target, packageRoot });
+    const installed = await readFile(pluginPath, "utf8");
+    await writeFile(pluginPath, `\uFEFF${installed.replaceAll("\n", "\r\n")}`);
+
+    await expect(uninstallAdapter({ target })).rejects.toMatchObject({
+      code: "OWNERSHIP_CONFLICT",
+    });
+    expect(await readFile(pluginPath, "utf8")).toMatch(/^\uFEFF/);
   });
 
   it("removes only exact owned files and preserves unrelated state", async () => {
