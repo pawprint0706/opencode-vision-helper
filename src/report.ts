@@ -60,9 +60,7 @@ function assertExactKeys(
   allowedKeys: readonly string[],
   label: string,
 ): void {
-  const unexpectedKeys = Object.keys(value).filter(
-    (key) => !allowedKeys.includes(key),
-  );
+  const unexpectedKeys = Object.keys(value).filter((key) => !allowedKeys.includes(key));
   if (unexpectedKeys.length > 0) {
     throw new AppError(
       "STRUCTURED_OUTPUT_INVALID",
@@ -85,10 +83,7 @@ export function parseVisionReport(value: unknown): VisionReport {
   }
   const issues = object.issues.map((item, index): VisionIssue => {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw new AppError(
-        "STRUCTURED_OUTPUT_INVALID",
-        `Issue ${index} is not an object.`,
-      );
+      throw new AppError("STRUCTURED_OUTPUT_INVALID", `Issue ${index} is not an object.`);
     }
     const issue = item as Record<string, unknown>;
     assertExactKeys(
@@ -97,22 +92,12 @@ export function parseVisionReport(value: unknown): VisionReport {
       `Issue ${index}`,
     );
     const severity = issue.severity;
-    if (
-      severity !== "high" &&
-      severity !== "medium" &&
-      severity !== "low"
-    ) {
-      throw new AppError(
-        "STRUCTURED_OUTPUT_INVALID",
-        `Issue ${index} has an invalid severity.`,
-      );
+    if (severity !== "high" && severity !== "medium" && severity !== "low") {
+      throw new AppError("STRUCTURED_OUTPUT_INVALID", `Issue ${index} has an invalid severity.`);
     }
     for (const field of ["region", "element", "description", "css_hint"] as const) {
       if (!isString(issue[field])) {
-        throw new AppError(
-          "STRUCTURED_OUTPUT_INVALID",
-          `Issue ${index} has an invalid ${field}.`,
-        );
+        throw new AppError("STRUCTURED_OUTPUT_INVALID", `Issue ${index} has an invalid ${field}.`);
       }
     }
     return {

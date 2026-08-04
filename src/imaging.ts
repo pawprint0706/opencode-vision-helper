@@ -39,7 +39,7 @@ export async function prepareImage(
       cause: error,
     });
   }
-  let info;
+  let info: Awaited<ReturnType<typeof stat>>;
   try {
     info = await stat(imagePath);
   } catch (error) {
@@ -81,7 +81,6 @@ async function prepareImageSource(
   sourceName: string,
   options: PrepareImageOptions,
 ): Promise<PreparedImage> {
-
   const maxLongEdge = options.maxLongEdge ?? DEFAULT_MAX_LONG_EDGE;
   if (!Number.isInteger(maxLongEdge) || maxLongEdge < 64 || maxLongEdge > 8192) {
     throw new AppError("BAD_REQUEST", "maxLongEdge must be an integer from 64 to 8192.");
@@ -108,10 +107,7 @@ async function prepareImageSource(
       throw new AppError("BAD_REQUEST", "Animated or multi-page images are not supported in v1.");
     }
     if (metadata.width * metadata.height > MAX_IMAGE_PIXELS) {
-      throw new AppError(
-        "BAD_REQUEST",
-        `Decoded image exceeds ${MAX_IMAGE_PIXELS} pixels.`,
-      );
+      throw new AppError("BAD_REQUEST", `Decoded image exceeds ${MAX_IMAGE_PIXELS} pixels.`);
     }
 
     let pipeline = source.rotate();
@@ -124,13 +120,16 @@ async function prepareImageSource(
       });
     }
 
-    const oriented = metadata.orientation && metadata.orientation >= 5
-      ? { width: metadata.height, height: metadata.width }
-      : { width: metadata.width, height: metadata.height };
-    const scale = options.resize === false
-      ? 1
-      : Math.min(1, maxLongEdge / Math.max(oriented.width, oriented.height));
-    const estimatedPixels = Math.max(1, Math.round(oriented.width * scale)) *
+    const oriented =
+      metadata.orientation && metadata.orientation >= 5
+        ? { width: metadata.height, height: metadata.width }
+        : { width: metadata.width, height: metadata.height };
+    const scale =
+      options.resize === false
+        ? 1
+        : Math.min(1, maxLongEdge / Math.max(oriented.width, oriented.height));
+    const estimatedPixels =
+      Math.max(1, Math.round(oriented.width * scale)) *
       Math.max(1, Math.round(oriented.height * scale));
     const useJpeg = !metadata.hasAlpha && estimatedPixels > JPEG_PIXEL_THRESHOLD;
 

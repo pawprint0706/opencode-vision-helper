@@ -49,15 +49,11 @@ describe("model selection", () => {
 
   it("requires a connected provider and image-capable model", () => {
     const ref = parseModelRef("opencode/vision");
-    expect(() => selectVisionModel(ref, [provider("opencode", true)], [])).toThrow(
-      /not connected/,
+    expect(() => selectVisionModel(ref, [provider("opencode", true)], [])).toThrow(/not connected/);
+    expect(() => selectVisionModel(ref, [provider("opencode", false)], ["opencode"])).toThrow(
+      /does not accept image/,
     );
-    expect(() =>
-      selectVisionModel(ref, [provider("opencode", false)], ["opencode"]),
-    ).toThrow(/does not accept image/);
-    expect(selectVisionModel(ref, [provider("opencode", true)], ["opencode"]).id).toBe(
-      "vision",
-    );
+    expect(selectVisionModel(ref, [provider("opencode", true)], ["opencode"]).id).toBe("vision");
   });
 
   it("lists only connected image models in allowed providers", () => {

@@ -24,9 +24,9 @@ async function temporaryDirectory(): Promise<string> {
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { recursive: true, force: true }),
-    ),
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -112,9 +112,7 @@ describe("image preparation", () => {
     png.writeUInt32BE(dimension, 20);
     png.writeUInt32BE(crc32(png.subarray(12, 29)), 29);
 
-    await expect(prepareImageBuffer(png, "pixel-bomb.png")).rejects.toThrow(
-      /Cannot decode image/,
-    );
+    await expect(prepareImageBuffer(png, "pixel-bomb.png")).rejects.toThrow(/Cannot decode image/);
   });
 
   it("rejects animated images in an otherwise supported format", async () => {
@@ -132,9 +130,9 @@ describe("image preparation", () => {
       .webp({ loop: 0, delay: [100, 100] })
       .toBuffer();
 
-    await expect(
-      prepareImageBuffer(animatedWebp, "animated.webp"),
-    ).rejects.toThrow(/Animated or multi-page/);
+    await expect(prepareImageBuffer(animatedWebp, "animated.webp")).rejects.toThrow(
+      /Animated or multi-page/,
+    );
   });
 
   it("applies EXIF orientation before reporting and resizing dimensions", async () => {

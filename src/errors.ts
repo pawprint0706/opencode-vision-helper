@@ -21,8 +21,7 @@ const RETRYABLE = new Set<ErrorCode>([
 
 const NEXT_ACTION: Record<ErrorCode, string> = {
   BAD_REQUEST: "Check the image path, format, and command arguments.",
-  CONFIGURATION:
-    "Pass --model opencode-go/<id> or opencode/<id>, or set OPENCODE_VISION_MODEL.",
+  CONFIGURATION: "Pass --model opencode-go/<id> or opencode/<id>, or set OPENCODE_VISION_MODEL.",
   OPENCODE_UNAVAILABLE: "Install or start OpenCode, then retry.",
   PROVIDER_NOT_CONNECTED: "Connect OpenCode Go or Zen with /connect, then retry.",
   MODEL_NOT_FOUND: "Choose an available Go or Zen model shown by doctor.",
@@ -145,17 +144,12 @@ export function mapOpenCodeError(
       });
     }
     if (name === "APIError") {
-      const data = named.data && typeof named.data === "object"
-        ? named.data
-        : undefined;
-      const retryable = Boolean(
-        data && "isRetryable" in data && data.isRetryable,
-      );
-      return new AppError(
-        "PROVIDER_ERROR",
-        "OpenCode provider request failed.",
-        { cause: error, retryable },
-      );
+      const data = named.data && typeof named.data === "object" ? named.data : undefined;
+      const retryable = Boolean(data && "isRetryable" in data && data.isRetryable);
+      return new AppError("PROVIDER_ERROR", "OpenCode provider request failed.", {
+        cause: error,
+        retryable,
+      });
     }
   }
   return new AppError(

@@ -1,22 +1,13 @@
-import {
-  createOpencode,
-  type OpencodeClient,
-  type Provider,
-} from "@opencode-ai/sdk/v2";
 import { basename } from "node:path";
+import { createOpencode, type OpencodeClient, type Provider } from "@opencode-ai/sdk/v2";
 
 import { AppError, mapOpenCodeError } from "./errors.js";
 import { imageDataUrl, type PreparedImage } from "./imaging.js";
-import {
-  imageModels,
-  parseModelRef,
-  selectVisionModel,
-  type ModelRef,
-} from "./model.js";
+import { imageModels, type ModelRef, parseModelRef, selectVisionModel } from "./model.js";
 import {
   IMAGE_TRUST_INSTRUCTION,
-  REPORT_SCHEMA,
   parseVisionReport,
+  REPORT_SCHEMA,
   type VisionReport,
 } from "./report.js";
 
@@ -58,10 +49,7 @@ async function providerState(
   return { providers: response.data.all, connected: response.data.connected };
 }
 
-export function validateModel(
-  ref: ModelRef,
-  state: ProviderState,
-): void {
+export function validateModel(ref: ModelRef, state: ProviderState): void {
   selectVisionModel(ref, state.providers, state.connected);
 }
 
@@ -83,9 +71,7 @@ export async function withOpenCode<T>(
 ): Promise<T> {
   let instance: Awaited<ReturnType<typeof createOpencode>>;
   try {
-    instance = await createOpencode(
-      signal ? { timeout: 10_000, signal } : { timeout: 10_000 },
-    );
+    instance = await createOpencode(signal ? { timeout: 10_000, signal } : { timeout: 10_000 });
   } catch (error) {
     throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE", signal);
   }
@@ -96,15 +82,9 @@ export async function withOpenCode<T>(
   }
 }
 
-export async function doctor(
-  directory: string,
-  signal?: AbortSignal,
-): Promise<DoctorResult> {
+export async function doctor(directory: string, signal?: AbortSignal): Promise<DoctorResult> {
   try {
-    return await withOpenCode(
-      (client) => doctorWithClient(client, directory, signal),
-      signal,
-    );
+    return await withOpenCode((client) => doctorWithClient(client, directory, signal), signal);
   } catch (error) {
     throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE", signal);
   }
@@ -161,18 +141,17 @@ function responseError(error: { name: string; data?: unknown }): AppError {
       "The selected OpenCode provider could not authenticate.",
     );
   }
-  const retryable = error.name === "APIError" &&
+  const retryable =
+    error.name === "APIError" &&
     Boolean(
       error.data &&
-      typeof error.data === "object" &&
-      "isRetryable" in error.data &&
-      error.data.isRetryable,
+        typeof error.data === "object" &&
+        "isRetryable" in error.data &&
+        error.data.isRetryable,
     );
-  return new AppError(
-    "PROVIDER_ERROR",
-    `OpenCode analysis failed with ${error.name}.`,
-    { retryable },
-  );
+  return new AppError("PROVIDER_ERROR", `OpenCode analysis failed with ${error.name}.`, {
+    retryable,
+  });
 }
 
 async function deleteSession(
@@ -181,10 +160,7 @@ async function deleteSession(
   sessionID: string,
 ): Promise<boolean> {
   try {
-    await client.session.delete(
-      { sessionID, directory },
-      { throwOnError: true },
-    );
+    await client.session.delete({ sessionID, directory }, { throwOnError: true });
     return true;
   } catch {
     return false;
@@ -197,10 +173,7 @@ async function abortSession(
   sessionID: string,
 ): Promise<void> {
   try {
-    await client.session.abort(
-      { sessionID, directory },
-      { throwOnError: true },
-    );
+    await client.session.abort({ sessionID, directory }, { throwOnError: true });
   } catch {
     // Cleanup remains best-effort; the original analysis error takes precedence.
   }
@@ -230,9 +203,7 @@ export async function analyzeWithClient(
         permission: [{ permission: "*", pattern: "*", action: "deny" }],
         metadata: { service: "opencode-vision-helper" },
       },
-      options.signal
-        ? { throwOnError: true, signal: options.signal }
-        : { throwOnError: true },
+      options.signal ? { throwOnError: true, signal: options.signal } : { throwOnError: true },
     );
     sessionID = created.data.id;
     const promptOptions = options.signal
@@ -292,10 +263,12 @@ export async function analyzeWithClient(
       return {
         ...result,
         session_id: created.data.id,
-        warnings: [{
-          code: "SESSION_CLEANUP_FAILED",
-          message: "Analysis succeeded, but the temporary OpenCode session could not be deleted.",
-        }],
+        warnings: [
+          {
+            code: "SESSION_CLEANUP_FAILED",
+            message: "Analysis succeeded, but the temporary OpenCode session could not be deleted.",
+          },
+        ],
       };
     }
     return result;

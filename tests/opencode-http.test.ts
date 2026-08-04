@@ -20,9 +20,7 @@ type FakeResponse = {
   body: unknown;
 };
 
-type Responder = (
-  request: RecordedRequest,
-) => FakeResponse | Promise<FakeResponse>;
+type Responder = (request: RecordedRequest) => FakeResponse | Promise<FakeResponse>;
 
 const servers: Array<ReturnType<typeof createServer>> = [];
 
@@ -173,11 +171,7 @@ describe("OpenCode SDK HTTP boundary", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       return { body: providerPayload() };
     });
-    const checking = doctorWithClient(
-      client,
-      "D:\\workspace",
-      controller.signal,
-    );
+    const checking = doctorWithClient(client, "D:\\workspace", controller.signal);
 
     await providerStarted;
     controller.abort(new AppError("ANALYSIS_ABORTED", "Doctor canceled by test."));

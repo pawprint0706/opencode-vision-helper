@@ -14,8 +14,9 @@ describe("analysis cancellation", () => {
     const reason = new AppError("ANALYSIS_ABORTED", "Canceled by caller.");
     parent.abort(reason);
     expect(scope.signal.aborted).toBe(true);
-    expect(mapOpenCodeError(new DOMException("aborted", "AbortError"), "PROVIDER_ERROR", scope.signal))
-      .toBe(reason);
+    expect(
+      mapOpenCodeError(new DOMException("aborted", "AbortError"), "PROVIDER_ERROR", scope.signal),
+    ).toBe(reason);
     scope.dispose();
   });
 

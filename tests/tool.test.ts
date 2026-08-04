@@ -67,10 +67,7 @@ describe("vision_analyze native tool", () => {
     );
 
     await expect(
-      definition.execute(
-        { image: "screen.png" },
-        toolContext.value,
-      ),
+      definition.execute({ image: "screen.png" }, toolContext.value),
     ).resolves.toMatchObject({
       title: "Vision analysis",
       output: "Summary: Looks good\nIssues: none",
@@ -120,17 +117,19 @@ describe("vision_analyze native tool", () => {
   it("uses the current message's sole data attachment when image is omitted", async () => {
     const directory = resolve("project");
     const prepareImageBuffer = vi.fn(async () => image);
-    const messageParts = vi.fn(async (): Promise<Part[]> => [
-      {
-        id: "part-1",
-        sessionID: "parent-session",
-        messageID: "message-1",
-        type: "file",
-        mime: "image/png",
-        filename: "attached.png",
-        url: "data:image/png;base64,aW1hZ2U=",
-      },
-    ]);
+    const messageParts = vi.fn(
+      async (): Promise<Part[]> => [
+        {
+          id: "part-1",
+          sessionID: "parent-session",
+          messageID: "message-1",
+          type: "file",
+          mime: "image/png",
+          filename: "attached.png",
+          url: "data:image/png;base64,aW1hZ2U=",
+        },
+      ],
+    );
     const definition = createVisionAnalyzeTool(
       {} as OpencodeClient,
       {
@@ -155,23 +154,26 @@ describe("vision_analyze native tool", () => {
   it("follows an assistant tool-call message to its parent user attachment", async () => {
     const directory = resolve("project");
     const message = vi.fn(async ({ messageID }: { messageID: string }) => ({
-      data: messageID === "message-1"
-        ? {
-            info: { role: "assistant", parentID: "user-message" },
-            parts: [],
-          }
-        : {
-            info: { role: "user" },
-            parts: [{
-              id: "part-1",
-              sessionID: "parent-session",
-              messageID: "user-message",
-              type: "file",
-              mime: "image/png",
-              filename: "parent.png",
-              url: "data:image/png;base64,aW1hZ2U=",
-            }],
-          },
+      data:
+        messageID === "message-1"
+          ? {
+              info: { role: "assistant", parentID: "user-message" },
+              parts: [],
+            }
+          : {
+              info: { role: "user" },
+              parts: [
+                {
+                  id: "part-1",
+                  sessionID: "parent-session",
+                  messageID: "user-message",
+                  type: "file",
+                  mime: "image/png",
+                  filename: "parent.png",
+                  url: "data:image/png;base64,aW1hZ2U=",
+                },
+              ],
+            },
     }));
     const client = { session: { message } } as unknown as OpencodeClient;
     const definition = createVisionAnalyzeTool(

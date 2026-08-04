@@ -50,9 +50,11 @@ describe("current-message image attachments", () => {
     expect(() => selectMessageImage([filePart(), filePart({ id: "part-2" })])).toThrow(
       /Multiple image attachments/,
     );
-    expect(() => selectMessageImage([filePart({ url: "https://example.invalid/shot.png" })]))
-      .toThrow(/local path or supported data URL/);
-    expect(() => selectMessageImage([filePart({ url: "data:image/png;base64,%%%" })]))
-      .toThrow(/supported base64 image data URL/);
+    expect(() =>
+      selectMessageImage([filePart({ url: "https://example.invalid/shot.png" })]),
+    ).toThrow(/local path or supported data URL/);
+    expect(() => selectMessageImage([filePart({ url: "data:image/png;base64,%%%" })])).toThrow(
+      /supported base64 image data URL/,
+    );
   });
 });

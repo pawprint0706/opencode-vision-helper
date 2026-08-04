@@ -1,18 +1,14 @@
 import { realpath } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 
-import { tool, type ToolContext, type ToolDefinition } from "@opencode-ai/plugin";
+import { type ToolContext, type ToolDefinition, tool } from "@opencode-ai/plugin";
 import type { OpencodeClient, Part } from "@opencode-ai/sdk/v2";
 
 import { createAbortScope, DEFAULT_ANALYSIS_TIMEOUT_MS } from "./abort.js";
 import { selectMessageImage } from "./attachment.js";
 import { AppError, asAppError, mapOpenCodeError } from "./errors.js";
-import {
-  prepareImage,
-  prepareImageBuffer,
-  type PreparedImage,
-} from "./imaging.js";
-import { analyzeWithClient, type AnalysisResult, type AnalyzeOptions } from "./opencode.js";
+import { type PreparedImage, prepareImage, prepareImageBuffer } from "./imaging.js";
+import { type AnalysisResult, type AnalyzeOptions, analyzeWithClient } from "./opencode.js";
 import { DEFAULT_PROMPT, formatReport } from "./report.js";
 
 export type VisionToolDependencies = {
@@ -20,11 +16,7 @@ export type VisionToolDependencies = {
   prepareImageBuffer(bytes: Uint8Array, filename: string): Promise<PreparedImage>;
   analyze(client: OpencodeClient, options: AnalyzeOptions): Promise<AnalysisResult>;
   canonicalize(path: string): Promise<string>;
-  messageParts(
-    client: OpencodeClient,
-    context: ToolContext,
-    signal: AbortSignal,
-  ): Promise<Part[]>;
+  messageParts(client: OpencodeClient, context: ToolContext, signal: AbortSignal): Promise<Part[]>;
 };
 
 export type VisionToolOptions = {
@@ -158,9 +150,10 @@ export function createVisionAnalyzeTool(
           } else {
             const parts = await services.messageParts(client, context, abortScope.signal);
             const attachment = selectMessageImage(parts);
-            image = attachment.kind === "path"
-              ? await preparePath(attachment.path)
-              : await services.prepareImageBuffer(attachment.bytes, attachment.filename);
+            image =
+              attachment.kind === "path"
+                ? await preparePath(attachment.path)
+                : await services.prepareImageBuffer(attachment.bytes, attachment.filename);
           }
 
           context.metadata({

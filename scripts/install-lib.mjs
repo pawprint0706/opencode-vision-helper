@@ -46,8 +46,10 @@ async function lstatOptional(path) {
 
 function isWithin(parent, child) {
   const difference = relative(parent, child);
-  return difference === "" ||
-    (!isAbsolute(difference) && difference !== ".." && !difference.startsWith(`..${sep}`));
+  return (
+    difference === "" ||
+    (!isAbsolute(difference) && difference !== ".." && !difference.startsWith(`..${sep}`))
+  );
 }
 
 async function assertSafePluginDirectory(target, { create }) {
@@ -105,7 +107,10 @@ async function assertRegularOwnedFile(path, entry, label) {
 
 async function packageInfo(packageRoot = PACKAGE_ROOT) {
   const packageJson = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));
-  const plugin = await readFile(resolve(packageRoot, "opencode", "plugins", "vision-helper.ts"), "utf8");
+  const plugin = await readFile(
+    resolve(packageRoot, "opencode", "plugins", "vision-helper.ts"),
+    "utf8",
+  );
   return {
     packageRoot,
     version: packageJson.version,
@@ -246,11 +251,10 @@ export async function installAdapter(options = {}) {
     await writeFile(pluginPath, info.plugin, { encoding: "utf8", flag: "wx" });
     pluginCreated = true;
     await options.beforeManifestWrite?.({ pluginPath, manifestPath });
-    await writeFile(
-      manifestPath,
-      `${JSON.stringify(manifest, null, 2)}\n`,
-      { encoding: "utf8", flag: "wx" },
-    );
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    });
   } catch (error) {
     let rollbackFailure;
     if (pluginCreated) {

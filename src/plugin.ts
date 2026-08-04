@@ -14,14 +14,10 @@ export const VisionHelperPlugin: Plugin = async ({ serverUrl, directory }, optio
   });
   return {
     tool: {
-      vision_analyze: createVisionAnalyzeTool(
-        client,
-        undefined,
-        {
-          ...(defaultModel ? { defaultModel } : {}),
-          ...(timeoutMs !== undefined ? { timeoutMs } : {}),
-        },
-      ),
+      vision_analyze: createVisionAnalyzeTool(client, undefined, {
+        ...(defaultModel ? { defaultModel } : {}),
+        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      }),
     },
   };
 };

@@ -13,7 +13,7 @@ const MAX_BASE64_LENGTH = Math.ceil(MAX_INPUT_BYTES / 3) * 4;
 
 function decodeDataUrl(url: string, filename: string): SelectedImageAttachment {
   const match = /^data:([^;,]+);base64,([A-Za-z0-9+/]*={0,2})$/.exec(url);
-  if (!match || !match[1]?.startsWith("image/") || match[2] === undefined) {
+  if (!match?.[1]?.startsWith("image/") || match[2] === undefined) {
     throw new AppError(
       "BAD_REQUEST",
       "The selected message attachment is not a supported base64 image data URL.",
@@ -52,7 +52,10 @@ export function selectMessageImage(parts: Part[]): SelectedImageAttachment {
     );
   }
 
-  const part = images[0]!;
+  const part = images[0];
+  if (!part) {
+    throw new AppError("BAD_REQUEST", "The selected image attachment is unavailable.");
+  }
   const filename = part.filename ?? "attachment";
   if (part.source?.type === "file") {
     return { kind: "path", path: part.source.path, filename };

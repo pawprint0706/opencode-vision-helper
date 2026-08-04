@@ -7,8 +7,5 @@
       "opencode-vision-helper/plugin": ["./src/plugin.ts"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "opencode/**/*.ts"
-  ]
+  "include": ["src/**/*.ts", "opencode/**/*.ts"]
 }

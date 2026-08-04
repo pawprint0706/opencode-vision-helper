@@ -2,13 +2,7 @@
 
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,10 +28,9 @@ async function runNpm(args, options = {}) {
 }
 
 try {
-  const packed = await runNpm(
-    ["pack", "--json", "--pack-destination", temporaryRoot],
-    { cwd: packageRoot },
-  );
+  const packed = await runNpm(["pack", "--json", "--pack-destination", temporaryRoot], {
+    cwd: packageRoot,
+  });
   const packResult = JSON.parse(packed.stdout);
   const artifacts = Array.isArray(packResult) ? packResult : Object.values(packResult);
   assert.equal(artifacts.length, 1, "npm pack must produce exactly one artifact");
@@ -109,12 +102,7 @@ try {
 
   const uninstalled = await run(
     process.execPath,
-    [
-      join(installedPackage, "scripts", "uninstall.mjs"),
-      "--target",
-      target,
-      "--json",
-    ],
+    [join(installedPackage, "scripts", "uninstall.mjs"), "--target", target, "--json"],
     { cwd: consumer },
   );
   assert.equal(JSON.parse(uninstalled.stdout).status, "uninstalled");

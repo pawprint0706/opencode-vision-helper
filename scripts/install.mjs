@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { installAdapter, InstallError } from "./install-lib.mjs";
+import { InstallError, installAdapter } from "./install-lib.mjs";
 
 function parseArgs(args) {
   const options = {};

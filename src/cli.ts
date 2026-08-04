@@ -11,7 +11,7 @@ import {
 } from "./abort.js";
 import { AppError, asAppError } from "./errors.js";
 import { prepareImage } from "./imaging.js";
-import { analyzeWithOpenCode, doctor } from "./opencode.js";
+import { type AnalysisResult, analyzeWithOpenCode, doctor } from "./opencode.js";
 import { DEFAULT_PROMPT, formatReport } from "./report.js";
 
 type ParsedAnalyze = {
@@ -103,10 +103,7 @@ export function parseAnalyzeArgs(args: string[]): ParsedAnalyze {
   return parsed;
 }
 
-function printJson(
-  value: unknown,
-  stream: NodeJS.WritableStream = process.stdout,
-): void {
+function printJson(value: unknown, stream: NodeJS.WritableStream = process.stdout): void {
   stream.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
@@ -130,7 +127,7 @@ async function runAnalyze(args: string[], services: CliServices): Promise<number
   };
   process.once("SIGINT", onInterrupt);
   const abortScope = createAbortScope(parsed.timeoutMs, interrupt.signal);
-  let result;
+  let result: AnalysisResult;
   try {
     result = await services.analyzeWithOpenCode({
       directory: process.cwd(),

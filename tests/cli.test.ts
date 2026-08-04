@@ -2,14 +2,9 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
-
+import { type CliServices, main, parseAnalyzeArgs } from "../src/cli.js";
 import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
-import {
-  main,
-  parseAnalyzeArgs,
-  type CliServices,
-} from "../src/cli.js";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -21,15 +16,11 @@ type CliResult = {
 
 async function runCli(args: string[]): Promise<CliResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      process.execPath,
-      ["--import", "tsx", "src/cli.ts", ...args],
-      {
-        cwd: projectRoot,
-        env: { ...process.env, NO_COLOR: "1" },
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
+    const child = spawn(process.execPath, ["--import", "tsx", "src/cli.ts", ...args], {
+      cwd: projectRoot,
+      env: { ...process.env, NO_COLOR: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
@@ -53,9 +44,7 @@ const preparedImage: PreparedImage = {
   originalHeight: 1,
 };
 
-function services(
-  overrides: Partial<CliServices> = {},
-): CliServices {
+function services(overrides: Partial<CliServices> = {}): CliServices {
   return {
     prepareImage: async () => preparedImage,
     analyzeWithOpenCode: async () => ({
@@ -72,10 +61,7 @@ function services(
   };
 }
 
-async function captureMain(
-  args: string[],
-  cliServices: CliServices,
-): Promise<CliResult> {
+async function captureMain(args: string[], cliServices: CliServices): Promise<CliResult> {
   let stdout = "";
   let stderr = "";
   const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
@@ -98,13 +84,7 @@ async function captureMain(
 describe("CLI argument parsing", () => {
   it("parses an approved structured analysis", () => {
     expect(
-      parseAnalyzeArgs([
-        "shot.png",
-        "--model",
-        "opencode-go/vision",
-        "--json",
-        "--allow-upload",
-      ]),
+      parseAnalyzeArgs(["shot.png", "--model", "opencode-go/vision", "--json", "--allow-upload"]),
     ).toEqual({
       image: "shot.png",
       model: "opencode-go/vision",
@@ -124,9 +104,7 @@ describe("CLI argument parsing", () => {
   it("rejects unknown options and missing image paths", () => {
     expect(() => parseAnalyzeArgs([])).toThrow(AppError);
     expect(() => parseAnalyzeArgs(["shot.png", "--wat"])).toThrow(/Unknown option/);
-    expect(() => parseAnalyzeArgs(["shot.png", "--timeout", "0"])).toThrow(
-      /--timeout/,
-    );
+    expect(() => parseAnalyzeArgs(["shot.png", "--timeout", "0"])).toThrow(/--timeout/);
   });
 
   it("parses an explicit analysis timeout", () => {
@@ -173,10 +151,12 @@ describe("CLI process contract", () => {
           model: "opencode-go/vision",
           report: { summary: "Looks good", issues: [] },
           session_id: "retained-session",
-          warnings: [{
-            code: "SESSION_CLEANUP_FAILED",
-            message: "Temporary session remains.",
-          }],
+          warnings: [
+            {
+              code: "SESSION_CLEANUP_FAILED",
+              message: "Temporary session remains.",
+            },
+          ],
         }),
       }),
     );

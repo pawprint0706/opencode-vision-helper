@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
-import {
-  analyzeWithClient,
-  doctorWithClient,
-} from "../src/opencode.js";
+import { analyzeWithClient, doctorWithClient } from "../src/opencode.js";
 
 function visionProvider(): Provider {
   return {
@@ -98,9 +95,7 @@ function fakeClient(structured: boolean, behavior: FakeBehavior = {}) {
               structured: structured ? { summary: "Looks good", issues: [] } : undefined,
               error: behavior.responseError,
             },
-            parts: structured
-              ? []
-              : [{ type: "text", text: "  custom result  " }],
+            parts: structured ? [] : [{ type: "text", text: "  custom result  " }],
           },
         };
       },
@@ -154,10 +149,7 @@ describe("OpenCode SDK contract", () => {
       sessionID: "session-1",
       tools: { bash: false, vision_analyze: false },
       format: { type: "json_schema", retryCount: 1 },
-      parts: [
-        { type: "text" },
-        { type: "file", mime: "image/png" },
-      ],
+      parts: [{ type: "text" }, { type: "file", mime: "image/png" }],
     });
     const prompt = calls.prompt as {
       parts: Array<{ url?: string }>;
@@ -281,7 +273,9 @@ describe("OpenCode SDK contract", () => {
   it("preserves an explicit timeout reason from the abort signal", async () => {
     const controller = new AbortController();
     controller.abort(new AppError("ANALYSIS_TIMEOUT", "Timed out."));
-    const { client } = fakeClient(true, { providerError: new DOMException("aborted", "AbortError") });
+    const { client } = fakeClient(true, {
+      providerError: new DOMException("aborted", "AbortError"),
+    });
     await expect(
       analyzeWithClient(client, {
         directory: "C:\\project",

@@ -32,7 +32,9 @@ try {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
     process.stdout.write(`OpenCode adapter ${result.status}: ${result.pluginPath}\n`);
-    process.stdout.write("OpenCode config, authentication, and package dependencies were not modified.\n");
+    process.stdout.write(
+      "OpenCode config, authentication, and package dependencies were not modified.\n",
+    );
   }
 } catch (error) {
   const code = error instanceof InstallError ? error.code : "UNKNOWN";
