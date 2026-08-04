@@ -33,6 +33,8 @@ try {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
     process.stdout.write(`OpenCode adapter ${result.status}: ${result.pluginPath}\n`);
+    process.stdout.write(`Merge the package dependency into: ${result.mergeTargets.packagePath}\n`);
+    process.stdout.write(`Merge the permission into: ${result.mergeTargets.configPath}\n`);
     process.stdout.write("Merge these snippets; existing config files were not modified:\n");
     process.stdout.write(`${JSON.stringify(result.snippets, null, 2)}\n`);
   }

@@ -179,12 +179,24 @@ function snippets(packageSpec) {
   };
 }
 
+function mergeTargets(options, target) {
+  const scope = options.scope ?? "project";
+  return {
+    packagePath: resolve(target, "package.json"),
+    configPath:
+      !options.target && scope === "project"
+        ? resolve(options.cwd ?? process.cwd(), "opencode.json")
+        : resolve(target, "opencode.json"),
+  };
+}
+
 export async function installAdapter(options = {}) {
   const target = resolveInstallTarget(options);
   const info = await packageInfo(options.packageRoot);
   const packageSpec = options.packageSpec ?? `file:${info.packageRoot.replaceAll("\\", "/")}`;
   const pluginPath = resolve(target, PLUGIN_RELATIVE_PATH);
   const manifestPath = resolve(target, MANIFEST_FILENAME);
+  const targets = mergeTargets(options, target);
   await assertSafePluginDirectory(target, { create: true });
   const [pluginEntry, manifestEntry, existingPlugin, existingManifest] = await Promise.all([
     lstatOptional(pluginPath),
@@ -225,6 +237,7 @@ export async function installAdapter(options = {}) {
       target,
       pluginPath,
       manifestPath,
+      mergeTargets: targets,
       snippets: snippets(packageSpec),
     };
   }
@@ -291,6 +304,7 @@ export async function installAdapter(options = {}) {
     target,
     pluginPath,
     manifestPath,
+    mergeTargets: targets,
     snippets: snippets(packageSpec),
   };
 }
@@ -299,9 +313,10 @@ export async function uninstallAdapter(options = {}) {
   const target = resolveInstallTarget(options);
   const pluginPath = resolve(target, PLUGIN_RELATIVE_PATH);
   const manifestPath = resolve(target, MANIFEST_FILENAME);
+  const targets = mergeTargets(options, target);
   const targetExists = await assertSafePluginDirectory(target, { create: false });
   if (!targetExists) {
-    return { status: "not-installed", target, pluginPath, manifestPath };
+    return { status: "not-installed", target, pluginPath, manifestPath, mergeTargets: targets };
   }
   const [pluginEntry, manifestEntry, existingPlugin, existingManifest] = await Promise.all([
     lstatOptional(pluginPath),
@@ -319,7 +334,7 @@ export async function uninstallAdapter(options = {}) {
         `An unowned plugin exists and will not be removed: ${pluginPath}`,
       );
     }
-    return { status: "not-installed", target, pluginPath, manifestPath };
+    return { status: "not-installed", target, pluginPath, manifestPath, mergeTargets: targets };
   }
 
   const manifest = parseManifest(existingManifest);
@@ -333,7 +348,13 @@ export async function uninstallAdapter(options = {}) {
         { cause: error },
       );
     }
-    return { status: "recovered-stale-manifest", target, pluginPath, manifestPath };
+    return {
+      status: "recovered-stale-manifest",
+      target,
+      pluginPath,
+      manifestPath,
+      mergeTargets: targets,
+    };
   }
   if (sha256(existingPlugin) !== manifest.files[0].sha256) {
     throw new InstallError(
@@ -359,7 +380,7 @@ export async function uninstallAdapter(options = {}) {
       { cause: error },
     );
   }
-  return { status: "uninstalled", target, pluginPath, manifestPath };
+  return { status: "uninstalled", target, pluginPath, manifestPath, mergeTargets: targets };
 }
 
 export async function pathExists(path) {

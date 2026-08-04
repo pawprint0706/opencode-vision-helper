@@ -74,6 +74,10 @@ describe("ownership-safe adapter lifecycle", () => {
       package: { dependencies: { "opencode-vision-helper": "file:D:/helper" } },
       permission: { permission: { vision_analyze: "ask" } },
     });
+    expect(result.mergeTargets).toEqual({
+      packagePath: resolve(target, "package.json"),
+      configPath: resolve(target, "opencode.json"),
+    });
   });
 
   it("is idempotent only for the exact owned install", async () => {
@@ -207,6 +211,21 @@ describe("ownership-safe adapter lifecycle", () => {
     expect(await pathExists(join(target, MANIFEST_FILENAME))).toBe(false);
   });
 
+  it("allows the current uninstaller to remove an exact older owned install", async () => {
+    const target = join(temporaryRoot, ".opencode");
+    await installAdapter({ target, packageRoot, packageSpec: "file:D:/old-helper" });
+    const manifestPath = join(target, MANIFEST_FILENAME);
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    manifest.version = "0.0.0";
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+    await expect(uninstallAdapter({ target })).resolves.toMatchObject({
+      status: "uninstalled",
+    });
+    expect(await pathExists(join(target, PLUGIN_RELATIVE_PATH))).toBe(false);
+    expect(await pathExists(manifestPath)).toBe(false);
+  });
+
   it("reports and recovers a partial uninstall after plugin removal", async () => {
     const target = join(temporaryRoot, ".opencode");
     const pluginPath = join(target, PLUGIN_RELATIVE_PATH);
@@ -240,6 +259,30 @@ describe("ownership-safe adapter lifecycle", () => {
         userHome: "D:/home",
       }),
     ).toBe(resolve("D:/home", ".config", "opencode"));
+  });
+
+  it("reports scope-specific package and config merge targets", async () => {
+    const project = join(temporaryRoot, "project");
+    const projectResult = await installAdapter({
+      scope: "project",
+      cwd: project,
+      packageRoot,
+    });
+    expect(projectResult.mergeTargets).toEqual({
+      packagePath: resolve(project, ".opencode", "package.json"),
+      configPath: resolve(project, "opencode.json"),
+    });
+
+    const userHome = join(temporaryRoot, "home");
+    const globalResult = await installAdapter({
+      scope: "global",
+      userHome,
+      packageRoot,
+    });
+    expect(globalResult.mergeTargets).toEqual({
+      packagePath: resolve(userHome, ".config", "opencode", "package.json"),
+      configPath: resolve(userHome, ".config", "opencode", "opencode.json"),
+    });
   });
 
   it("runs the cross-platform install and uninstall command entrypoints", async () => {

@@ -44,8 +44,12 @@ installs, and rolls back a plugin created by the current run if manifest creatio
 fails. It does not edit OpenCode configuration, package configuration, credentials,
 agents, or other plugins.
 
-Merge the package snippet printed by the installer into `.opencode/package.json`.
-For a checkout at `D:/DEV/PP/opencode-vision-helper`, it is equivalent to:
+The installer prints the exact package and permission merge targets. For project
+scope, merge the package snippet into `<project>/.opencode/package.json` and the
+permission into `<project>/opencode.json`. For global scope, the corresponding
+targets are `~/.config/opencode/package.json` and
+`~/.config/opencode/opencode.json`. For a checkout at
+`D:/DEV/PP/opencode-vision-helper`, the package snippet is equivalent to:
 
 ```json
 {
@@ -56,7 +60,7 @@ For a checkout at `D:/DEV/PP/opencode-vision-helper`, it is equivalent to:
 ```
 
 The installed wrapper is discovered automatically, so merge only its permission
-into that project's `opencode.json`:
+into the printed config target:
 
 ```json
 {
@@ -71,6 +75,23 @@ Do not replace an existing `opencode.json` or `.opencode/package.json`; merge on
 the printed dependency and permission key. OpenCode installs dependencies from
 `.opencode/package.json` when it starts. Restart OpenCode after installing the
 wrapper or changing dependencies.
+
+## Adapter upgrade
+
+An install is idempotent only when its owner, wrapper hash, package version, and
+package spec exactly match. To upgrade or change a `file:`/registry source, first
+run the ownership-checked uninstaller against the existing scope, then install the
+new package and review the printed merge targets again:
+
+```powershell
+npm run adapter:uninstall -- --scope project
+npm run adapter:install -- --scope project
+```
+
+The current uninstaller can remove an older manifest when the installed wrapper
+still exactly matches that manifest. If either file was edited or ownership cannot
+be proved, it stops instead of replacing it. Package and permission snippets remain
+manual user-owned configuration and are never rewritten during an upgrade.
 
 ## Coexistence with orca-vision-helper
 

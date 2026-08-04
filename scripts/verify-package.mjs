@@ -194,6 +194,76 @@ try {
   assert.equal(await readFile(authPath, "utf8"), before.auth);
   assert.equal(await readFile(packageJsonPath, "utf8"), before.packageJson);
 
+  const temporaryHome = join(temporaryRoot, "isolated global home");
+  const globalTarget = join(temporaryHome, ".config", "opencode");
+  const globalConfigPath = join(globalTarget, "opencode.json");
+  const globalAuthPath = join(globalTarget, "auth.json");
+  const globalPackagePath = join(globalTarget, "package.json");
+  await mkdir(globalTarget, { recursive: true });
+  await writeFile(globalConfigPath, '{"permission":{"bash":"deny"}}\n');
+  await writeFile(globalAuthPath, '{"untouched":"global-auth-sentinel"}\n');
+  await writeFile(globalPackagePath, '{"private":true,"dependencies":{"kept":"1.0.0"}}\n');
+  const globalBefore = {
+    config: await readFile(globalConfigPath, "utf8"),
+    auth: await readFile(globalAuthPath, "utf8"),
+    packageJson: await readFile(globalPackagePath, "utf8"),
+  };
+  const globalEnvironment = {
+    ...process.env,
+    HOME: temporaryHome,
+    USERPROFILE: temporaryHome,
+  };
+  const globalInstalled = await run(
+    process.execPath,
+    [
+      join(installedPackage, "scripts", "install.mjs"),
+      "--scope",
+      "global",
+      "--package-spec",
+      packageSpec,
+      "--json",
+    ],
+    { cwd: consumer, env: globalEnvironment },
+  );
+  const globalInstallResult = JSON.parse(globalInstalled.stdout);
+  assert.equal(globalInstallResult.status, "installed");
+  assert.equal(resolve(globalInstallResult.target), resolve(globalTarget));
+  assert.deepEqual(globalInstallResult.mergeTargets, {
+    packagePath: resolve(globalPackagePath),
+    configPath: resolve(globalConfigPath),
+  });
+  assert.equal(
+    await readFile(join(globalTarget, "plugins", "vision-helper.ts"), "utf8"),
+    'export { VisionHelperPlugin } from "opencode-vision-helper/plugin";\n',
+  );
+  assert.equal(await readFile(globalConfigPath, "utf8"), globalBefore.config);
+  assert.equal(await readFile(globalAuthPath, "utf8"), globalBefore.auth);
+  assert.equal(await readFile(globalPackagePath, "utf8"), globalBefore.packageJson);
+
+  const globalRepeated = await run(
+    process.execPath,
+    [
+      join(installedPackage, "scripts", "install.mjs"),
+      "--scope",
+      "global",
+      "--package-spec",
+      packageSpec,
+      "--json",
+    ],
+    { cwd: consumer, env: globalEnvironment },
+  );
+  assert.equal(JSON.parse(globalRepeated.stdout).status, "already-installed");
+
+  const globalUninstalled = await run(
+    process.execPath,
+    [join(installedPackage, "scripts", "uninstall.mjs"), "--scope", "global", "--json"],
+    { cwd: consumer, env: globalEnvironment },
+  );
+  assert.equal(JSON.parse(globalUninstalled.stdout).status, "uninstalled");
+  assert.equal(await readFile(globalConfigPath, "utf8"), globalBefore.config);
+  assert.equal(await readFile(globalAuthPath, "utf8"), globalBefore.auth);
+  assert.equal(await readFile(globalPackagePath, "utf8"), globalBefore.packageJson);
+
   process.stdout.write("Packed package import and adapter lifecycle verified.\n");
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
