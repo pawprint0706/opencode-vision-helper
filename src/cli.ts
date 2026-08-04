@@ -11,6 +11,7 @@ import {
 } from "./abort.js";
 import { AppError, asAppError } from "./errors.js";
 import { prepareImage } from "./imaging.js";
+import { parseModelRef } from "./model.js";
 import { type AnalysisResult, analyzeWithOpenCode, doctor } from "./opencode.js";
 import { DEFAULT_PROMPT, formatReport } from "./report.js";
 
@@ -119,6 +120,7 @@ async function runAnalyze(args: string[], services: CliServices): Promise<number
   if (!model) {
     throw new AppError("CONFIGURATION", "No vision model was selected.");
   }
+  parseModelRef(model);
   const image = await services.prepareImage(parsed.image);
   const structured = parsed.prompt === undefined;
   const interrupt = new AbortController();

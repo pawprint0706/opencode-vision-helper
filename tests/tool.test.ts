@@ -2,8 +2,9 @@ import { resolve } from "node:path";
 
 import type { PluginInput, ToolContext } from "@opencode-ai/plugin";
 import type { OpencodeClient, Part } from "@opencode-ai/sdk/v2";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
 import { VisionHelperPlugin } from "../src/plugin.js";
 import { adaptPluginClient } from "../src/plugin-client.js";
@@ -19,7 +20,7 @@ const image: PreparedImage = {
   originalHeight: 1,
 };
 
-function context(directory: string, worktree = directory) {
+function context(directory: string, worktree = directory, abort = new AbortController().signal) {
   const ask = vi.fn(async () => undefined);
   const metadata = vi.fn();
   const value: ToolContext = {
@@ -28,12 +29,16 @@ function context(directory: string, worktree = directory) {
     agent: "build",
     directory,
     worktree,
-    abort: new AbortController().signal,
+    abort,
     ask,
     metadata,
   };
   return { ask, metadata, value };
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("vision_analyze native tool", () => {
   it("registers against the OpenCode server that loaded the plugin", async () => {
@@ -242,6 +247,145 @@ describe("vision_analyze native tool", () => {
       retryable: false,
     });
     expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unsupported model before reading an image or message", async () => {
+    const directory = resolve("project");
+    const toolContext = context(directory);
+    const canonicalize = vi.fn();
+    const messageParts = vi.fn();
+    const definition = createVisionAnalyzeTool({} as OpencodeClient, {
+      canonicalize,
+      messageParts,
+    });
+
+    const result = await definition.execute(
+      { image: "screen.png", model: "openai/vision" },
+      toolContext.value,
+    );
+
+    expect(JSON.parse(result as string)).toMatchObject({
+      status: "error",
+      error_code: "CONFIGURATION",
+      retryable: false,
+    });
+    expect(canonicalize).not.toHaveBeenCalled();
+    expect(messageParts).not.toHaveBeenCalled();
+    expect(toolContext.ask).not.toHaveBeenCalled();
+  });
+
+  it("does not read or upload an external image when directory access is denied", async () => {
+    const directory = resolve("project");
+    const external = resolve("outside", "screen.png");
+    const toolContext = context(directory);
+    toolContext.ask.mockRejectedValueOnce(new Error("Permission denied"));
+    const prepareImage = vi.fn();
+    const analyze = vi.fn();
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      {
+        canonicalize: async (path) =>
+          path === resolve(directory, "link.png") ? external : resolve(path),
+        prepareImage,
+        analyze,
+      },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    const result = await definition.execute({ image: "link.png" }, toolContext.value);
+
+    expect(JSON.parse(result as string)).toMatchObject({
+      status: "error",
+      error_code: "UPLOAD_NOT_APPROVED",
+      retryable: false,
+      message: "OpenCode did not approve access to the external image.",
+    });
+    expect(prepareImage).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(toolContext.ask).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves cancellation while waiting for upload permission", async () => {
+    const directory = resolve("project");
+    const parent = new AbortController();
+    const toolContext = context(directory, directory, parent.signal);
+    toolContext.ask.mockImplementation(async () => {
+      parent.abort(new AppError("ANALYSIS_ABORTED", "Canceled by caller."));
+      throw new DOMException("aborted", "AbortError");
+    });
+    const analyze = vi.fn();
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      {
+        canonicalize: async (path) => resolve(path),
+        prepareImage: async () => image,
+        analyze,
+      },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    const result = await definition.execute({ image: "screen.png" }, toolContext.value);
+
+    expect(JSON.parse(result as string)).toMatchObject({
+      status: "error",
+      error_code: "ANALYSIS_ABORTED",
+      message: "Canceled by caller.",
+    });
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it("preserves timeout while waiting for upload permission", async () => {
+    vi.useFakeTimers();
+    const directory = resolve("project");
+    const toolContext = context(directory);
+    toolContext.ask.mockImplementation(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+      throw new DOMException("aborted", "AbortError");
+    });
+    const analyze = vi.fn();
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      {
+        canonicalize: async (path) => resolve(path),
+        prepareImage: async () => image,
+        analyze,
+      },
+      { defaultModel: "opencode-go/vision", timeoutMs: 1_000 },
+    );
+
+    const result = await definition.execute({ image: "screen.png" }, toolContext.value);
+
+    expect(JSON.parse(result as string)).toMatchObject({
+      status: "error",
+      error_code: "ANALYSIS_TIMEOUT",
+      retryable: true,
+    });
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it("does not read an image when the tool context is already canceled", async () => {
+    const directory = resolve("project");
+    const parent = new AbortController();
+    parent.abort(new AppError("ANALYSIS_ABORTED", "Canceled before execution."));
+    const toolContext = context(directory, directory, parent.signal);
+    const canonicalize = vi.fn();
+    const prepareImage = vi.fn();
+    const definition = createVisionAnalyzeTool(
+      {} as OpencodeClient,
+      { canonicalize, prepareImage },
+      { defaultModel: "opencode-go/vision" },
+    );
+
+    const result = await definition.execute({ image: "screen.png" }, toolContext.value);
+
+    expect(JSON.parse(result as string)).toMatchObject({
+      status: "error",
+      error_code: "ANALYSIS_ABORTED",
+      message: "Canceled before execution.",
+    });
+    expect(canonicalize).not.toHaveBeenCalled();
+    expect(prepareImage).not.toHaveBeenCalled();
+    expect(toolContext.ask).not.toHaveBeenCalled();
   });
 
   it("uses the current message's sole data attachment when image is omitted", async () => {

@@ -45,10 +45,9 @@ export function selectMessageImage(parts: Part[]): SelectedImageAttachment {
     );
   }
   if (images.length > 1) {
-    const names = images.map((part) => part.filename ?? "unnamed").join(", ");
     throw new AppError(
       "BAD_REQUEST",
-      `Multiple image attachments were found (${names}); pass image explicitly.`,
+      `Multiple image attachments were found (${images.length}); pass image explicitly.`,
     );
   }
 

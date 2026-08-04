@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { AppError } from "../src/errors.js";
 import {
   imageDataUrl,
+  imageFilename,
   MAX_IMAGE_PIXELS,
   MAX_INPUT_BYTES,
   prepareImage,
@@ -42,6 +43,12 @@ function crc32(bytes: Uint8Array): number {
 }
 
 describe("image preparation", () => {
+  it("sanitizes untrusted SDK filenames", () => {
+    expect(imageFilename("C:\\private\\bad\u0000name.png")).toBe("bad_name.png");
+    expect(imageFilename("..", "attachment")).toBe("attachment");
+    expect(Array.from(imageFilename(`${"x".repeat(300)}.png`))).toHaveLength(255);
+  });
+
   it("downscales and normalizes an image without changing the source", async () => {
     const directory = await temporaryDirectory();
     const imagePath = join(directory, "wide.png");

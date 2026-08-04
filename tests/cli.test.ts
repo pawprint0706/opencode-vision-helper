@@ -170,6 +170,18 @@ describe("CLI process contract", () => {
     expect(result.stderr).toContain("Session: retained-session.");
   });
 
+  it("rejects an unsupported model before reading the image", async () => {
+    const prepareImage = vi.fn(async () => preparedImage);
+
+    await expect(
+      main(
+        ["analyze", "screen.png", "--model", "openai/vision", "--allow-upload"],
+        services({ prepareImage }),
+      ),
+    ).rejects.toMatchObject({ code: "CONFIGURATION" });
+    expect(prepareImage).not.toHaveBeenCalled();
+  });
+
   it("prints a structured success envelope for --json", async () => {
     const result = await captureMain(
       ["analyze", "screen.png", "--model", "opencode-go/vision", "--allow-upload", "--json"],

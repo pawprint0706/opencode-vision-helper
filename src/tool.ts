@@ -8,6 +8,7 @@ import { createAbortScope, DEFAULT_ANALYSIS_TIMEOUT_MS } from "./abort.js";
 import { selectMessageImage } from "./attachment.js";
 import { AppError, asAppError, mapOpenCodeError } from "./errors.js";
 import { type PreparedImage, prepareImage, prepareImageBuffer } from "./imaging.js";
+import { parseModelRef } from "./model.js";
 import { type AnalysisResult, type AnalyzeOptions, analyzeWithClient } from "./opencode.js";
 import { DEFAULT_PROMPT, formatReport } from "./report.js";
 
@@ -76,6 +77,22 @@ function formatToolResult(result: AnalysisResult): string {
   return result.text ?? "";
 }
 
+async function requirePermission(
+  context: ToolContext,
+  request: Parameters<ToolContext["ask"]>[0],
+  message: string,
+  signal: AbortSignal,
+): Promise<void> {
+  try {
+    await context.ask(request);
+  } catch (error) {
+    if (signal.aborted || (error instanceof Error && error.name === "AbortError")) {
+      throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE", signal);
+    }
+    throw new AppError("UPLOAD_NOT_APPROVED", message, { cause: error });
+  }
+}
+
 export function createVisionAnalyzeTool(
   client: OpencodeClient,
   dependencies: Partial<VisionToolDependencies> = {},
@@ -113,12 +130,14 @@ export function createVisionAnalyzeTool(
         if (!model) {
           throw new AppError("CONFIGURATION", "No vision model was selected.");
         }
+        parseModelRef(model);
 
         const abortScope = createAbortScope(
           options.timeoutMs ?? DEFAULT_ANALYSIS_TIMEOUT_MS,
           context.abort,
         );
         try {
+          abortScope.signal.throwIfAborted();
           const preparePath = async (inputPath: string): Promise<PreparedImage> => {
             const candidate = resolve(context.directory, inputPath);
             let imagePath: string;
@@ -134,15 +153,20 @@ export function createVisionAnalyzeTool(
               );
             }
             if (!isWithin(worktreePath, imagePath)) {
-              await context.ask({
-                permission: "external_directory",
-                patterns: [imagePath],
-                always: [`${dirname(imagePath)}/*`],
-                metadata: {
-                  reason: "Analyze and upload an image outside the current worktree",
-                  image: imagePath,
+              await requirePermission(
+                context,
+                {
+                  permission: "external_directory",
+                  patterns: [imagePath],
+                  always: [`${dirname(imagePath)}/*`],
+                  metadata: {
+                    reason: "Analyze and upload an image outside the current worktree",
+                    image: imagePath,
+                  },
                 },
-              });
+                "OpenCode did not approve access to the external image.",
+                abortScope.signal,
+              );
             }
             return services.prepareImage(imagePath);
           };
@@ -159,8 +183,9 @@ export function createVisionAnalyzeTool(
                 : await services.prepareImageBuffer(attachment.bytes, attachment.filename);
           }
 
-          try {
-            await context.ask({
+          await requirePermission(
+            context,
+            {
               permission: "vision_analyze",
               patterns: [model],
               always: [model],
@@ -169,12 +194,10 @@ export function createVisionAnalyzeTool(
                 image: image.path,
                 model,
               },
-            });
-          } catch (error) {
-            throw new AppError("UPLOAD_NOT_APPROVED", "OpenCode did not approve image upload.", {
-              cause: error,
-            });
-          }
+            },
+            "OpenCode did not approve image upload.",
+            abortScope.signal,
+          );
           context.metadata({
             title: "Analyze image",
             metadata: { image: image.path, model },

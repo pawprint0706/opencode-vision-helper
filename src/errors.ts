@@ -27,7 +27,7 @@ const NEXT_ACTION: Record<ErrorCode, string> = {
   MODEL_NOT_FOUND: "Choose an available Go or Zen model shown by doctor.",
   MODEL_NOT_VISION_CAPABLE: "Choose a model whose input capabilities include images.",
   UPLOAD_NOT_APPROVED:
-    "Review the image for sensitive content and retry with --allow-upload after approval.",
+    "Review the image, then retry with --allow-upload in the CLI or approve the OpenCode permission.",
   ANALYSIS_ABORTED: "Retry only if image analysis is still needed.",
   ANALYSIS_TIMEOUT: "Retry with a longer --timeout or choose a faster vision model.",
   STRUCTURED_OUTPUT_INVALID: "Retry with another image-capable model.",

@@ -12,7 +12,15 @@ const JPEG_PIXEL_THRESHOLD = 1_400_000;
 const ALLOWED_FORMATS = new Set(["png", "jpeg", "webp"]);
 
 export function imageFilename(value: string, fallback = "image"): string {
-  return basename(value.replaceAll("\\", "/")) || fallback;
+  const leaf = basename(value.replaceAll("\\", "/"));
+  const sanitized = Array.from(leaf)
+    .map((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint !== undefined && (codePoint < 32 || codePoint === 127) ? "_" : character;
+    })
+    .slice(0, 255)
+    .join("");
+  return sanitized && sanitized !== "." && sanitized !== ".." ? sanitized : fallback;
 }
 
 export type PreparedImage = {
