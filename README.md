@@ -93,8 +93,9 @@ mergeable package and permission snippets and never edits `opencode.json`,
 files with `npm run adapter:uninstall -- --scope project`. Global scope and exact
 ownership behavior are documented in [docs/OPENCODE.md](docs/OPENCODE.md).
 
-Tests use a fake SDK client and do not read OpenCode credentials or send an
-image. OpenCode remains the sole owner of provider authentication.
+Tests use both focused fake clients and the generated SDK against a local fake
+OpenCode server. They do not read OpenCode credentials or send an image to an
+external provider. OpenCode remains the sole owner of provider authentication.
 
 CI runs the same offline verification on Windows, macOS, and Linux with Node.js
 20 and 24. It packs the real artifact, installs it into a temporary consumer,
@@ -104,6 +105,8 @@ consumer's config or auth sentinels. Live provider tests are intentionally exclu
 See [docs/MIGRATION.md](docs/MIGRATION.md) for the active migration plan.
 See [docs/OPENCODE.md](docs/OPENCODE.md) for adapter lifecycle and permission
 examples for the native tool.
+See [docs/VALIDATION.md](docs/VALIDATION.md) for offline evidence and the explicitly
+authorized live-release checklist.
 
 ## Provenance
 

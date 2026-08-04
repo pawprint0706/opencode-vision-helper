@@ -42,8 +42,10 @@ configuration, model metadata, and model-specific wire protocols.
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an
    offline temporary consumer and its plugin export and adapter lifecycle are verified.
-6. **Pending:** validate CLI and desktop behavior, then decide the source repository's
-   maintenance or archive policy separately.
+6. **In progress:** the packaged CLI is validated end-to-end against a local fake
+   OpenCode executable. Live Go/Zen, TUI/desktop permissions and attachments, the
+   remote three-OS CI result, distribution, and source-repository policy still need
+   explicit authorization or decisions.
 
 Offline CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and
