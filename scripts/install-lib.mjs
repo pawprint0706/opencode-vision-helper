@@ -324,7 +324,15 @@ export async function uninstallAdapter(options = {}) {
 
   const manifest = parseManifest(existingManifest);
   if (existingPlugin === undefined) {
-    await rm(manifestPath);
+    try {
+      await rm(manifestPath);
+    } catch (error) {
+      throw new InstallError(
+        "UNINSTALL_FAILED",
+        `Could not remove the stale ownership manifest: ${manifestPath}`,
+        { cause: error },
+      );
+    }
     return { status: "recovered-stale-manifest", target, pluginPath, manifestPath };
   }
   if (sha256(existingPlugin) !== manifest.files[0].sha256) {
@@ -334,8 +342,23 @@ export async function uninstallAdapter(options = {}) {
     );
   }
 
-  await rm(pluginPath);
-  await rm(manifestPath);
+  try {
+    await rm(pluginPath);
+  } catch (error) {
+    throw new InstallError("UNINSTALL_FAILED", `Could not remove the owned plugin: ${pluginPath}`, {
+      cause: error,
+    });
+  }
+  try {
+    await options.beforeManifestRemove?.({ pluginPath, manifestPath });
+    await rm(manifestPath);
+  } catch (error) {
+    throw new InstallError(
+      "UNINSTALL_INCOMPLETE",
+      `The owned plugin was removed, but its manifest remains; run uninstall again: ${manifestPath}`,
+      { cause: error },
+    );
+  }
   return { status: "uninstalled", target, pluginPath, manifestPath };
 }
 

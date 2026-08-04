@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -18,6 +18,21 @@ import {
 const packageRoot = resolve(".");
 const execFileAsync = promisify(execFile);
 let temporaryRoot: string;
+
+type CommandFailure = Error & {
+  code: number;
+  stdout: string;
+  stderr: string;
+};
+
+async function commandFailure(args: string[]): Promise<CommandFailure> {
+  try {
+    await execFileAsync(process.execPath, args, { cwd: packageRoot });
+  } catch (error) {
+    return error as CommandFailure;
+  }
+  throw new Error("Expected command to fail.");
+}
 
 beforeEach(async () => {
   temporaryRoot = await mkdtemp(join(tmpdir(), "opencode-vision-helper-test-"));
@@ -192,6 +207,29 @@ describe("ownership-safe adapter lifecycle", () => {
     expect(await pathExists(join(target, MANIFEST_FILENAME))).toBe(false);
   });
 
+  it("reports and recovers a partial uninstall after plugin removal", async () => {
+    const target = join(temporaryRoot, ".opencode");
+    const pluginPath = join(target, PLUGIN_RELATIVE_PATH);
+    const manifestPath = join(target, MANIFEST_FILENAME);
+    await installAdapter({ target, packageRoot });
+
+    await expect(
+      uninstallAdapter({
+        target,
+        beforeManifestRemove: async () => {
+          throw new Error("simulated manifest removal failure");
+        },
+      }),
+    ).rejects.toMatchObject({ code: "UNINSTALL_INCOMPLETE" });
+    expect(await pathExists(pluginPath)).toBe(false);
+    expect(await pathExists(manifestPath)).toBe(true);
+
+    await expect(uninstallAdapter({ target })).resolves.toMatchObject({
+      status: "recovered-stale-manifest",
+    });
+    expect(await pathExists(manifestPath)).toBe(false);
+  });
+
   it("resolves project and global targets without inspecting credentials", () => {
     expect(resolveInstallTarget({ scope: "project", cwd: "D:/work" })).toBe(
       resolve("D:/work", ".opencode"),
@@ -226,5 +264,38 @@ describe("ownership-safe adapter lifecycle", () => {
       { cwd: packageRoot },
     );
     expect(JSON.parse(uninstalled.stdout)).toMatchObject({ status: "uninstalled" });
+  });
+
+  it("reports command ownership conflicts on stderr with exit code 1", async () => {
+    const target = join(temporaryRoot, ".opencode");
+    const pluginPath = join(target, PLUGIN_RELATIVE_PATH);
+    await mkdir(dirname(pluginPath), { recursive: true });
+    await writeFile(pluginPath, "// externally owned\n");
+
+    const installFailure = await commandFailure([
+      resolve("scripts/install.mjs"),
+      "--target",
+      target,
+      "--json",
+    ]);
+    expect(installFailure.code).toBe(1);
+    expect(installFailure.stdout).toBe("");
+    expect(JSON.parse(installFailure.stderr)).toMatchObject({
+      status: "error",
+      error_code: "OWNERSHIP_CONFLICT",
+    });
+
+    const uninstallFailure = await commandFailure([
+      resolve("scripts/uninstall.mjs"),
+      "--target",
+      target,
+      "--json",
+    ]);
+    expect(uninstallFailure.code).toBe(1);
+    expect(uninstallFailure.stdout).toBe("");
+    expect(JSON.parse(uninstallFailure.stderr)).toMatchObject({
+      status: "error",
+      error_code: "OWNERSHIP_CONFLICT",
+    });
   });
 });
