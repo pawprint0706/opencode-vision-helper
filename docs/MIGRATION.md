@@ -49,6 +49,9 @@ configuration, model metadata, and model-specific wire protocols.
    are also live-verified. OpenCode Desktop 1.18.13 additionally verified the native
    file picker, external-path and upload permission prompts, explicit-path analysis,
    and attachment resolution with the tool's `image` argument omitted.
+   A subsequent TUI run verified the caller metadata gate with an explicit
+   `image: false` Go model and an `image: true` Go model; the latter returned
+   `CALLER_VISION_CAPABLE` before any upload permission or delegated analysis.
 5. **Complete offline:** cross-platform Node install/uninstall commands use exact
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an

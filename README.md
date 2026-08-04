@@ -10,7 +10,9 @@ The CLI and native `vision_analyze` plugin adapter are implemented and covered b
 offline tests. A synthetic fixture has also been validated through the live OpenCode
 Go and Zen paths, through the installed native tool in the OpenCode TUI for local
 and external paths, through OpenCode's real message-file attachment path, and in the
-OpenCode Desktop file picker and permission UI. The package is not published; local
+OpenCode Desktop file picker and permission UI. Local TUI validation also confirms
+that current OpenCode caller metadata permits an explicitly non-vision model and
+rejects an image-capable caller before upload. The package is not published;
 packed-artifact installation is verified on every `npm run verify`. The local-only
 v1 implementation and validation scope is complete; public distribution remains a
 separate future decision.

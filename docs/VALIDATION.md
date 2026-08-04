@@ -90,6 +90,31 @@ native tool found the clipped button. In a fresh session, omitting the tool's
 attempt did not expose the native tool, which is why deterministic dependency
 installation is now an explicit documented step.
 
+On 2026-08-05, after the caller-capability gate was added, the project-scoped
+adapter was installed again and tested in the OpenCode 1.18.12 TUI with a newly
+generated copy of the same synthetic settings image:
+
+- `opencode-go/deepseek-v4-flash` reported
+  `capabilities.input.image: false`. It invoked `vision_analyze`, displayed the
+  `vision_analyze` permission prompt, and completed after `Allow once` using
+  `opencode-go/gpt-5.6-luna`. The delegated result identified the intentionally
+  clipped **Save changes** button. The observed caller-session cost was
+  `0.0014200816`, and the delegated tool metadata reported cost `0.000546125`.
+- `opencode-go/gpt-5.6-luna` reported
+  `capabilities.input.image: true`. Its forced test invocation returned
+  `CALLER_VISION_CAPABLE` in 3 ms with the instruction to analyze the image
+  directly. No upload permission prompt, delegated model cost, or additional
+  analysis session was observed.
+- An initial `opencode-go/kimi-k3` rejection attempt did not begin producing a
+  model response within the test window during uneven provider service. It was
+  aborted and was not counted as gate evidence; the successful Luna invocation
+  exercised the same `image: true` branch.
+
+The disabled free-model attempt, successful DeepSeek and Luna sessions, and aborted
+Kimi session were deleted. The adapter wrapper and manifest, installed dependency
+directory, temporary OpenCode package/config files, and synthetic image were also
+removed. No credential file was read or changed.
+
 A guarded native automation prototype was also exercised with `opencode run` in an
 isolated project. On OpenCode CLI 1.18.12 it repeatedly stalled after the logged
 `init` stage before any model call or stdout, including after explicit dependency
