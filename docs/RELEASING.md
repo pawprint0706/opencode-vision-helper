@@ -47,12 +47,30 @@ The package's `prepublishOnly` script reruns the complete gate. Current npm also
 supports staged publication followed by an interactive 2FA approval. Either path is
 an external write and must be chosen and authorized by the maintainer at release time.
 
-For subsequent releases, prefer npm trusted publishing from a GitHub-hosted runner:
-OIDC avoids a long-lived publish token and automatically produces provenance for a
-public package from a public repository. Configure the exact repository/workflow in
-the npm package settings, grant only `contents: read` and `id-token: write`, protect
-the release environment/tag, and test that trust path before restricting or revoking
-older automation tokens.
+Subsequent releases use npm trusted publishing from the GitHub-hosted workflow
+`.github/workflows/publish.yml`. OIDC avoids a long-lived npm publish token and
+automatically produces provenance for this public package and repository. The npm
+package settings must use these exact, case-sensitive values:
+
+```text
+Publisher: GitHub Actions
+Organization or user: pawprint0706
+Repository: opencode-vision-helper
+Workflow filename: publish.yml
+Environment name: (empty)
+Allowed action: npm publish
+```
+
+The workflow has only `contents: read` and `id-token: write`. It runs when a
+non-prerelease GitHub Release is published, checks that its annotated `v<version>` tag
+matches `package.json`, installs from the lockfile without a package-manager cache,
+runs the complete release gate, and publishes without an npm token. Creating or
+pushing a tag alone does not publish.
+
+npm does not validate the trusted-publisher fields when they are saved. Treat the next
+release as the first end-to-end OIDC test. Only after that succeeds should traditional
+token publishing be disabled in npm package settings. Keep tag/release protection and
+the rollback policy above in force.
 
 Official npm references:
 

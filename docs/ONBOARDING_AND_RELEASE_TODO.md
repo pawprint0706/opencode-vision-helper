@@ -242,8 +242,10 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [x] npm publish용 2FA를 활성화한다. `auth-and-writes` 모드를 확인했다.
 - [x] 최초 배포 방식을 수동 `npm publish --access public`로 선택하고 승인했다. 후속
   릴리스는 trusted publishing 전환을 우선 검토한다.
-- [ ] CI 배포를 선택하면 GitHub Actions OIDC trusted publisher, 최소 권한,
-  provenance, 보호된 release/tag 절차를 설정하고 장기 publish token은 두지 않는다.
+- [x] 후속 릴리스용 GitHub Actions OIDC trusted publisher와 `publish.yml`을 최소 권한,
+  provenance, 보호된 release/tag 절차로 설정하고 장기 publish token은 두지 않는다.
+- [ ] 다음 버전에서 trusted publishing과 provenance를 최초 end-to-end 검증한 뒤 npm의
+  전통적인 token publish를 비활성화한다.
 - [x] semver, changelog, Git tag, GitHub Release, deprecation/rollback 정책을 정한다.
 
 공개 scoped 패키지의 최초 publish에는 public access 지정이 필요하다.
