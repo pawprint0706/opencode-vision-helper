@@ -4,9 +4,9 @@ The optional OpenCode adapter exposes one tool named `vision_analyze`. It uses
 the SDK client for the OpenCode server that loaded the plugin, so authentication,
 provider configuration, and model routing remain owned by OpenCode.
 
-The adapter and ownership-safe lifecycle commands are implemented. The package is
-still private and unpublished, but installation from the packed artifact is covered
-by the package verification suite.
+The adapter and ownership-safe lifecycle commands are implemented. The scoped public
+package metadata is prepared but the package is still unpublished. Installation from
+the packed artifact is covered by the package verification suite.
 
 Before using either the CLI or native tool, connect OpenCode Go or Zen through
 OpenCode's `/connect` flow and choose an image-capable `opencode-go/*` or
@@ -30,7 +30,7 @@ npm run adapter:install -- --scope global
 
 `project` targets `<current-directory>/.opencode`. `global` uses the documented
 `~/.config/opencode` location. Use `--target <absolute-directory>` for a custom
-configuration root. The current private development package defaults to a `file:`
+configuration root. The current development package defaults to a `file:`
 dependency on this checkout; override the printed dependency with
 `--package-spec <npm-version-or-file-spec>` when appropriate.
 
@@ -54,7 +54,7 @@ targets are `~/.config/opencode/package.json` and
 ```json
 {
   "dependencies": {
-    "opencode-vision-helper": "file:D:/DEV/PP/opencode-vision-helper"
+    "@pawprint0706/opencode-vision-helper": "file:D:/DEV/PP/opencode-vision-helper"
   }
 }
 ```
@@ -119,7 +119,7 @@ No old provider credential is migrated; connect Go or Zen in OpenCode with
 
 The wrapper uses `OPENCODE_VISION_MODEL` unless the caller supplies `model`. As an
 alternative to installing the wrapper, package-only registration can add
-`["opencode-vision-helper/plugin", { "model": "opencode-go/<id>",
+`["@pawprint0706/opencode-vision-helper", { "model": "opencode-go/<id>",
 "timeoutMs": 120000 }]` to the existing `plugin` array. Do not use both registration
 methods in the same configuration.
 

@@ -16,9 +16,9 @@ rejects an image-capable caller before upload. Headless `opencode run` sessions 
 CLI 1.18.13 reproduced both behaviors: a vision-limited `opencode-go/deepseek-v4-flash`
 session delegated analysis to `opencode-go/gpt-5.6-luna`, and a forced
 `opencode-go/gpt-5.6-luna` call was refused with `CALLER_VISION_CAPABLE`. The package
-is not published; packed-artifact installation is verified on every `npm run verify`.
-The local-only v1 implementation and validation scope is complete; public
-distribution remains a separate future decision.
+is not published yet; its scoped public-package metadata is prepared and
+packed-artifact installation is verified on every `npm run verify`. Interactive
+setup and registry release work remain in progress.
 
 The target flow is:
 

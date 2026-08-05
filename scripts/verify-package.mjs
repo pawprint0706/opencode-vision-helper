@@ -63,8 +63,19 @@ try {
     { cwd: consumer },
   );
 
-  const installedPackage = join(consumer, "node_modules", "opencode-vision-helper");
+  const installedPackage = join(
+    consumer,
+    "node_modules",
+    "@pawprint0706",
+    "opencode-vision-helper",
+  );
   const cliEntry = join(installedPackage, "dist", "cli.js");
+  const installedManifest = JSON.parse(
+    await readFile(join(installedPackage, "package.json"), "utf8"),
+  );
+  assert.equal(installedManifest.name, "@pawprint0706/opencode-vision-helper");
+  assert.equal(installedManifest.publishConfig?.access, "public");
+  assert.equal(installedManifest.scripts?.postinstall, undefined);
   const cliShim = join(
     consumer,
     "node_modules",
@@ -77,6 +88,16 @@ try {
 
   const cli = await runInstalledCli(["--help"]);
   assert.match(cli.stdout, /opencode-vision-helper analyze <image>/);
+  await run(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      "const core = await import('@pawprint0706/opencode-vision-helper'); " +
+        "if (typeof core.parseHelperConfig !== 'function') process.exit(1);",
+    ],
+    { cwd: consumer },
+  );
 
   const fakeBin = join(temporaryRoot, "fake opencode bin");
   const fakeServer = join(packageRoot, "tests", "fixtures", "fake-opencode.mjs");
@@ -140,7 +161,17 @@ try {
     [
       "--input-type=module",
       "--eval",
-      "const plugin = await import('opencode-vision-helper/plugin'); " +
+      "const plugin = await import('@pawprint0706/opencode-vision-helper/plugin'); " +
+        "if (typeof plugin.VisionHelperPlugin !== 'function') process.exit(1);",
+    ],
+    { cwd: consumer },
+  );
+  await run(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      "const plugin = await import('@pawprint0706/opencode-vision-helper/server'); " +
         "if (typeof plugin.VisionHelperPlugin !== 'function') process.exit(1);",
     ],
     { cwd: consumer },
@@ -174,7 +205,7 @@ try {
   assert.equal(JSON.parse(installed.stdout).status, "installed");
   assert.equal(
     await readFile(join(target, "plugins", "vision-helper.ts"), "utf8"),
-    'export { VisionHelperPlugin } from "opencode-vision-helper/plugin";\n',
+    'export { VisionHelperPlugin } from "@pawprint0706/opencode-vision-helper/plugin";\n',
   );
   assert.equal(await readFile(configPath, "utf8"), before.config);
   assert.equal(await readFile(authPath, "utf8"), before.auth);
@@ -230,7 +261,7 @@ try {
   });
   assert.equal(
     await readFile(join(globalTarget, "plugins", "vision-helper.ts"), "utf8"),
-    'export { VisionHelperPlugin } from "opencode-vision-helper/plugin";\n',
+    'export { VisionHelperPlugin } from "@pawprint0706/opencode-vision-helper/plugin";\n',
   );
   assert.equal(await readFile(globalConfigPath, "utf8"), globalBefore.config);
   assert.equal(await readFile(globalAuthPath, "utf8"), globalBefore.auth);

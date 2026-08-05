@@ -190,11 +190,11 @@ into this project or recorded in validation output.
 
 ## Distribution decision
 
-The GitHub source repository is public, while distribution remains local-only and
-the package remains `private` and unpublished. Before a later external release,
-choose private-registry, public npm, or another artifact channel; then add the
-corresponding package metadata, version/provenance policy, and published-artifact
-smoke test. The original `orca-vision-helper` was marked deprecated in commit
+The GitHub source repository is public and the package now carries scoped public npm
+metadata for `@pawprint0706/opencode-vision-helper`, while distribution remains
+local-only and unpublished. Before the external release, finish the setup flow,
+version/provenance policy, and published-artifact smoke test. The original
+`orca-vision-helper` was marked deprecated in commit
 `ace115f` and archived on 2026-08-05 after its historical migration records and
 ownership-aware removal guidance were preserved. That repository retirement did not
 remove any existing installation or credential.

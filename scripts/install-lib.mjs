@@ -5,6 +5,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const OWNER = "opencode-vision-helper";
+export const PACKAGE_NAME = "@pawprint0706/opencode-vision-helper";
 export const MANIFEST_FILENAME = ".opencode-vision-helper-install.json";
 export const PLUGIN_RELATIVE_PATH = "plugins/vision-helper.ts";
 
@@ -168,7 +169,7 @@ function snippets(packageSpec) {
   return {
     package: {
       dependencies: {
-        [OWNER]: packageSpec,
+        [PACKAGE_NAME]: packageSpec,
       },
     },
     permission: {

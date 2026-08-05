@@ -71,7 +71,9 @@ describe("ownership-safe adapter lifecycle", () => {
       files: [{ path: PLUGIN_RELATIVE_PATH }],
     });
     expect(result.snippets).toMatchObject({
-      package: { dependencies: { "opencode-vision-helper": "file:D:/helper" } },
+      package: {
+        dependencies: { "@pawprint0706/opencode-vision-helper": "file:D:/helper" },
+      },
       permission: { permission: { vision_analyze: "ask" } },
     });
     expect(result.mergeTargets).toEqual({

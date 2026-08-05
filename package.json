@@ -1,10 +1,28 @@
 {
-  "name": "opencode-vision-helper",
+  "name": "@pawprint0706/opencode-vision-helper",
   "version": "0.1.0",
   "description": "OpenCode-native vision fallback for models without image input",
   "type": "module",
   "license": "MIT",
-  "private": true,
+  "author": "pawprint0706",
+  "homepage": "https://github.com/pawprint0706/opencode-vision-helper#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pawprint0706/opencode-vision-helper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pawprint0706/opencode-vision-helper/issues"
+  },
+  "keywords": [
+    "opencode",
+    "vision",
+    "image-analysis",
+    "cli",
+    "plugin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20"
   },
@@ -19,12 +37,18 @@
     "./plugin": {
       "types": "./dist/plugin.d.ts",
       "import": "./dist/plugin.js"
+    },
+    "./server": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.js"
     }
   },
   "files": [
     "dist",
     "opencode",
-    "scripts",
+    "scripts/install-lib.mjs",
+    "scripts/install.mjs",
+    "scripts/uninstall.mjs",
     "README.md",
     "LICENSE"
   ],

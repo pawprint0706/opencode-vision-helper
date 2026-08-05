@@ -1,5 +1,6 @@
 export * from "./abort.js";
 export * from "./attachment.js";
+export * from "./config.js";
 export * from "./errors.js";
 export * from "./imaging.js";
 export * from "./model.js";
