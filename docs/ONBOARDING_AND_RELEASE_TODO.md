@@ -84,9 +84,9 @@ OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. �
 - [x] 기존 wrapper installer는 공개 배포 전환 기간 동안 개발 checkout 및 구버전
   호환용으로 유지하되 일반 사용자 README에서는 npm 직접 등록만 안내한다. npm 직접
   등록의 세 운영체제 검증이 끝난 뒤 별도 버전에서 deprecate 여부를 다시 판단한다.
-- [ ] 직접 등록과 wrapper가 동시에 로드되어 도구가 중복 등록되지 않도록 감지한다.
+- [x] 직접 등록과 wrapper가 동시에 로드되어 도구가 중복 등록되지 않도록 감지한다.
   setup은 같은 global config directory의 legacy wrapper를 차단한다. 임의 프로젝트의
-  local wrapper까지 전역 setup이 탐색하지 않으므로 runtime 또는 doctor 진단은 남아 있다.
+  local wrapper는 현재 작업 디렉터리에서 doctor가 ownership manifest와 함께 진단한다.
 
 참고: [OpenCode Plugins](https://opencode.ai/docs/plugins/)
 

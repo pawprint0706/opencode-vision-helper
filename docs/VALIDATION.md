@@ -44,7 +44,7 @@ remaining a one-time manual observation.
 | Strict report and free-form text preservation | `tests/report.test.ts`, `tests/opencode-http.test.ts` |
 | SDK routes, file part, schema retry request, tool disabling, cleanup, errors, and cancellation | `tests/opencode-http.test.ts` |
 | CLI stdout/stderr/exit, human/JSON/text output, Unicode paths, and timeout | `tests/cli.test.ts`, `scripts/verify-package.mjs` |
-| Setup consent/model matrix, EOF/Ctrl+C/timeout handling, no-analysis regression, manual fallback verification, JSONC-preserving global registration/removal, ownership drift, and readiness diagnostics | `tests/config.test.ts`, `tests/setup.test.ts`, `tests/registration.test.ts`, `tests/diagnostics.test.ts` |
+| Setup consent/model matrix, EOF/Ctrl+C/timeout handling, no-analysis regression, manual fallback verification, JSONC-preserving global registration/removal, global-direct/project-wrapper duplicate detection, ownership drift, and readiness diagnostics | `tests/config.test.ts`, `tests/setup.test.ts`, `tests/registration.test.ts`, `tests/diagnostics.test.ts` |
 | Native caller identity and fail-closed image-capability gate, tool registration, SDK client bridge, upload/external-path permissions, attachments, and approved core handoff | `tests/model.test.ts`, `tests/tool.test.ts`, `tests/attachment.test.ts` |
 | Exact project/global install ownership, merge targets, symlink/junction containment, upgrade removal, rollback, modification preservation, and recovery | `tests/install.test.ts`, `scripts/verify-package.mjs` |
 | No OpenCode config/auth mutation during packaged adapter lifecycle | config/auth sentinels in `scripts/verify-package.mjs` |

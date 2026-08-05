@@ -77,7 +77,9 @@ Successful results and help are written to stdout with exit code 0. Errors are
 written as a stable JSON object to stderr with exit code 1. `doctor` reports OpenCode
 health, helper consent/config validity, saved-model connection and image capability,
 global plugin registration, and permission drift. It returns exit code 1 when any
-required readiness check fails. Project or agent configuration can still override
+required readiness check fails. It also checks the current project's ownership-aware
+legacy wrapper and rejects loading it beside the global npm plugin. Project or agent
+configuration can still override
 the reported global permission, and restart necessity is reported as unknown when it
 cannot be observed safely.
 
@@ -159,7 +161,7 @@ images or prompts containing data you are not authorized to transmit.
 | --- | --- |
 | Go/Zen is disconnected | Use OpenCode `/connect`, rerun `setup`, then run `doctor --json`. The helper never repairs credentials itself. |
 | The saved model disappeared or lost image capability | Rerun `setup` and select a currently listed image-capable model. |
-| `vision_analyze` is missing | Restart OpenCode, run `doctor --json`, and resolve duplicate direct/legacy registration or a project/agent override. |
+| `vision_analyze` is missing | Restart OpenCode, run `doctor --json`, and resolve a reported global-direct/project-wrapper duplicate or a project/agent override. |
 | Setup reports JSONC or two-config ambiguity | Follow the displayed manual fallback, preserve unrelated settings, and consolidate `opencode.json`/`opencode.jsonc` to one intended global file. |
 | An `ask` prompt does not appear | Check saved consent with `config show`, resolved permission with `doctor`, and project/agent/managed overrides. OpenCode auto mode may approve according to its own policy. |
 | `unregister` reports ownership drift | Do not force deletion. Restore the helper-owned value or review and remove only the intended snippet manually. |

@@ -31,6 +31,8 @@ export type RegistrationDiagnostic = {
   npm_plugin_entries?: number;
   legacy_wrapper_present?: boolean;
   legacy_wrapper_owned?: boolean;
+  project_legacy_wrapper_present?: boolean;
+  project_legacy_wrapper_owned?: boolean;
   duplicate_registration?: boolean;
   permission?: unknown;
   permission_source?: OpenCodeRegistrationDiagnostic["permissionSource"];
@@ -81,7 +83,10 @@ export async function diagnoseInstallation(
   const openCode = await services.doctorOpenCode(directory, signal);
   const [configOutcome, registrationOutcome] = await Promise.allSettled([
     services.readConfigState(options.configLocation ?? {}),
-    services.diagnoseRegistration(options.registrationLocation ?? {}),
+    services.diagnoseRegistration({
+      ...(options.registrationLocation ?? {}),
+      projectDirectory: directory,
+    }),
   ]);
 
   let config: HelperConfig | undefined;
@@ -132,6 +137,12 @@ export async function diagnoseInstallation(
       npm_plugin_entries: state.npmPluginEntries,
       legacy_wrapper_present: state.legacyWrapperPresent,
       legacy_wrapper_owned: state.legacyWrapperOwned,
+      ...(state.projectLegacyWrapperPresent !== undefined
+        ? { project_legacy_wrapper_present: state.projectLegacyWrapperPresent }
+        : {}),
+      ...(state.projectLegacyWrapperOwned !== undefined
+        ? { project_legacy_wrapper_owned: state.projectLegacyWrapperOwned }
+        : {}),
       duplicate_registration: state.duplicateRegistration,
       ...(state.permission !== undefined ? { permission: state.permission } : {}),
       permission_source: state.permissionSource,

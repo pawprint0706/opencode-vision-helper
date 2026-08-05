@@ -44,6 +44,7 @@ export type OpenCodeRegistrationOptions = {
   configPath?: string;
   manifestPath?: string;
   userHome?: string;
+  projectDirectory?: string;
   expectedRevision?: string | null;
   allowPermissionChange?: boolean;
   beforeConfigCommit?: (path: string) => Promise<void>;
@@ -96,6 +97,8 @@ export type OpenCodeRegistrationDiagnostic = {
   npmPluginEntries: number;
   legacyWrapperPresent: boolean;
   legacyWrapperOwned: boolean;
+  projectLegacyWrapperPresent?: boolean;
+  projectLegacyWrapperOwned?: boolean;
   pluginRegistered: boolean;
   duplicateRegistration: boolean;
   permission?: JsonValue;
@@ -510,11 +513,33 @@ export async function diagnoseOpenCodeRegistration(
   const manifestPath = resolveManifestPath(options);
   const wrapperPath = resolve(dirname(configPath), "plugins", "vision-helper.ts");
   const legacyManifestPath = resolve(dirname(configPath), ".opencode-vision-helper-install.json");
-  const [content, manifestContent, wrapper, legacyManifestContent] = await Promise.all([
+  const projectRoot = options.projectDirectory
+    ? resolve(options.projectDirectory, ".opencode")
+    : undefined;
+  const projectWrapperPath = projectRoot
+    ? resolve(projectRoot, "plugins", "vision-helper.ts")
+    : undefined;
+  const projectManifestPath = projectRoot
+    ? resolve(projectRoot, ".opencode-vision-helper-install.json")
+    : undefined;
+  const [
+    content,
+    manifestContent,
+    wrapper,
+    legacyManifestContent,
+    projectWrapper,
+    projectManifestContent,
+  ] = await Promise.all([
     readRegularFile(configPath, "OpenCode config"),
     readRegularFile(manifestPath, "registration manifest"),
     readRegularFile(wrapperPath, "legacy vision-helper wrapper"),
     readRegularFile(legacyManifestPath, "legacy wrapper manifest"),
+    projectWrapperPath
+      ? readRegularFile(projectWrapperPath, "project legacy vision-helper wrapper")
+      : undefined,
+    projectManifestPath
+      ? readRegularFile(projectManifestPath, "project legacy wrapper manifest")
+      : undefined,
   ]);
   await assertExistingConfigDirectoryIsRegular(configPath);
   const config = parseConfig(content, configPath);
@@ -532,6 +557,8 @@ export async function diagnoseOpenCodeRegistration(
     : 0;
   const legacyWrapperPresent = wrapper !== undefined;
   const legacyWrapperOwned = legacyWrapperIsOwned(wrapper, legacyManifestContent);
+  const projectLegacyWrapperPresent = projectWrapper !== undefined;
+  const projectLegacyWrapperOwned = legacyWrapperIsOwned(projectWrapper, projectManifestContent);
 
   const permissionRoot = config.permission;
   let permission: JsonValue | undefined;
@@ -554,17 +581,26 @@ export async function diagnoseOpenCodeRegistration(
   if (manifestContent !== undefined) {
     verifyOwnedState(parseManifest(manifestContent, manifestPath), config, configPath);
   }
-  const registrationSources = (npmPluginEntries > 0 ? 1 : 0) + (legacyWrapperPresent ? 1 : 0);
+  const registrationSources =
+    (npmPluginEntries > 0 ? 1 : 0) +
+    (legacyWrapperPresent ? 1 : 0) +
+    (projectLegacyWrapperPresent ? 1 : 0);
   return {
     configPath,
     manifestPath,
     npmPluginEntries,
     legacyWrapperPresent,
     legacyWrapperOwned,
+    ...(projectRoot
+      ? {
+          projectLegacyWrapperPresent,
+          projectLegacyWrapperOwned,
+        }
+      : {}),
     pluginRegistered:
       registrationSources === 1 &&
       npmPluginEntries <= 1 &&
-      (npmPluginEntries === 1 || legacyWrapperOwned),
+      (npmPluginEntries === 1 || legacyWrapperOwned || projectLegacyWrapperOwned),
     duplicateRegistration: npmPluginEntries > 1 || registrationSources > 1,
     ...(permission !== undefined ? { permission } : {}),
     permissionSource,

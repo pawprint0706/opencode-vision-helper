@@ -212,6 +212,48 @@ describe("OpenCode global registration", () => {
     });
   });
 
+  it("diagnoses a project legacy wrapper loaded beside the global npm plugin", async () => {
+    const location = paths();
+    await mkdir(dirname(location.configPath), { recursive: true });
+    await writeFile(
+      location.configPath,
+      `${JSON.stringify({ plugin: [OPENCODE_PLUGIN_PACKAGE], permission: { vision_analyze: "ask" } }, null, 2)}\n`,
+    );
+    const projectDirectory = join(temporaryRoot, "project");
+    const projectRoot = join(projectDirectory, ".opencode");
+    const wrapperPath = join(projectRoot, "plugins", "vision-helper.ts");
+    const manifestPath = join(projectRoot, ".opencode-vision-helper-install.json");
+    const wrapper =
+      'export { VisionHelperPlugin } from "@pawprint0706/opencode-vision-helper/plugin";\n';
+    await mkdir(dirname(wrapperPath), { recursive: true });
+    await writeFile(wrapperPath, wrapper);
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify({
+        schema: 1,
+        owner: "opencode-vision-helper",
+        version: "0.1.0",
+        packageSpec: "file:test",
+        files: [
+          {
+            path: "plugins/vision-helper.ts",
+            sha256: createHash("sha256").update(wrapper).digest("hex"),
+          },
+        ],
+      })}\n`,
+    );
+
+    await expect(
+      diagnoseOpenCodeRegistration({ ...location, projectDirectory }),
+    ).resolves.toMatchObject({
+      npmPluginEntries: 1,
+      projectLegacyWrapperPresent: true,
+      projectLegacyWrapperOwned: true,
+      pluginRegistered: false,
+      duplicateRegistration: true,
+    });
+  });
+
   it("requires explicit confirmation before replacing an existing tool permission", async () => {
     const location = paths();
     await mkdir(dirname(location.configPath), { recursive: true });

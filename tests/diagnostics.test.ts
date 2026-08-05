@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CLOUD_UPLOAD_NOTICE_VERSION,
@@ -154,6 +154,36 @@ describe("installation diagnostics", () => {
       provider: "opencode",
       provider_connected: false,
       image_capable: false,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("checks the current project for a legacy wrapper loaded beside direct registration", async () => {
+    const diagnoseRegistration = vi.fn(async () => ({
+      configPath: "opencode.json",
+      manifestPath: "registration.json",
+      npmPluginEntries: 1,
+      legacyWrapperPresent: false,
+      legacyWrapperOwned: false,
+      projectLegacyWrapperPresent: true,
+      projectLegacyWrapperOwned: true,
+      pluginRegistered: false,
+      duplicateRegistration: true,
+      permission: "ask" as const,
+      permissionSource: "vision_analyze" as const,
+      ownershipManifestPresent: true,
+    }));
+
+    const result = await diagnoseInstallation("project-root", undefined, {
+      services: services({ diagnoseRegistration }),
+    });
+
+    expect(diagnoseRegistration).toHaveBeenCalledWith({ projectDirectory: "project-root" });
+    expect(result.opencode_registration).toMatchObject({
+      plugin_registered: false,
+      project_legacy_wrapper_present: true,
+      project_legacy_wrapper_owned: true,
+      duplicate_registration: true,
     });
     expect(result.ok).toBe(false);
   });

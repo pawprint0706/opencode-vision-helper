@@ -41,6 +41,9 @@ registration, duplicate loading, and the global permission value. Doctor never r
 credential contents or calls a billed model. Project and agent permissions may
 override the global value; current OpenCode APIs do not reliably expose whether a
 restart is pending, so that field is reported as `unknown`.
+For the directory where doctor is run, it also checks an ownership-aware
+`.opencode/plugins/vision-helper.ts` and reports it as a duplicate when the global
+npm plugin is registered at the same time.
 
 Inspect or withdraw the saved cloud-upload consent with:
 
