@@ -4,7 +4,18 @@ import { access, lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/p
 import { homedir } from "node:os";
 import { dirname, extname, resolve } from "node:path";
 
-import { applyEdits, modify, type ParseError, parse, printParseErrorCode } from "jsonc-parser";
+import {
+  applyEdits,
+  createScanner,
+  findNodeAtLocation,
+  type Node as JsonNode,
+  modify,
+  type ParseError,
+  parse,
+  parseTree,
+  printParseErrorCode,
+  SyntaxKind,
+} from "jsonc-parser";
 
 import type { HelperPermission } from "./config.js";
 import { AppError } from "./errors.js";
@@ -37,6 +48,7 @@ export type OpenCodeRegistrationOptions = {
   allowPermissionChange?: boolean;
   beforeConfigCommit?: (path: string) => Promise<void>;
   beforeManifestCommit?: (path: string) => Promise<void>;
+  beforeManifestRemove?: (path: string) => Promise<void>;
 };
 
 export type OpenCodeRegistrationPlan = {
@@ -59,6 +71,13 @@ export type OpenCodeRegistrationResult = {
   configPath: string;
   manifestPath?: string;
   permission: HelperPermission;
+};
+
+export type OpenCodeUnregistrationResult = {
+  status: "unregistered" | "not-registered";
+  changed: boolean;
+  configPath: string;
+  manifestPath: string;
 };
 
 export type OpenCodeRegistrationDiagnostic = {
@@ -315,14 +334,16 @@ async function assertNoLegacyWrapper(configPath: string): Promise<void> {
   }
 }
 
-async function assertExistingConfigDirectoryIsRegular(configPath: string): Promise<void> {
-  const directory = dirname(configPath);
+async function assertExistingDirectoryIsRegular(path: string, label: string): Promise<void> {
+  const directory = dirname(path);
   const entry = await lstatOptional(directory);
   if (entry && (!entry.isDirectory() || entry.isSymbolicLink())) {
-    throw registrationError(
-      `The OpenCode config directory is not a regular directory: ${directory}`,
-    );
+    throw registrationError(`The ${label} directory is not a regular directory: ${directory}`);
   }
+}
+
+async function assertExistingConfigDirectoryIsRegular(configPath: string): Promise<void> {
+  await assertExistingDirectoryIsRegular(configPath, "OpenCode config");
 }
 
 function verifyOwnedState(
@@ -333,10 +354,14 @@ function verifyOwnedState(
   if (resolve(manifest.configPath) !== resolve(configPath)) {
     throw registrationError("The registration manifest belongs to a different OpenCode config.");
   }
-  const plugin = Array.isArray(config.plugin) ? config.plugin : [];
+  const plugin =
+    Array.isArray(config.plugin) && config.plugin.every((item) => typeof item === "string")
+      ? config.plugin
+      : [];
   if (
     manifest.plugin.added &&
-    plugin.filter((item) => item === OPENCODE_PLUGIN_PACKAGE).length !== 1
+    (plugin !== config.plugin ||
+      plugin.filter((item) => item === OPENCODE_PLUGIN_PACKAGE).length !== 1)
   ) {
     throw registrationError("The helper-owned OpenCode plugin entry changed outside setup.");
   }
@@ -465,16 +490,99 @@ function mergeConfig(
   const bom = content?.startsWith("\uFEFF") ? "\uFEFF" : "";
   let body = content === undefined ? "{}\n" : bom ? content.slice(1) : content;
   const format = formattingOptions(body);
-  const plugin = Array.isArray(config.plugin) ? [...config.plugin] : [];
+  const plugin = Array.isArray(config.plugin) ? config.plugin : [];
   if (!plugin.includes(OPENCODE_PLUGIN_PACKAGE)) {
-    plugin.push(OPENCODE_PLUGIN_PACKAGE);
-    body = applyEdits(body, modify(body, ["plugin"], plugin, { formattingOptions: format }));
+    body = applyEdits(
+      body,
+      Array.isArray(config.plugin)
+        ? modify(body, ["plugin", plugin.length], OPENCODE_PLUGIN_PACKAGE, {
+            formattingOptions: format,
+            isArrayInsertion: true,
+          })
+        : modify(body, ["plugin"], [OPENCODE_PLUGIN_PACKAGE], {
+            formattingOptions: format,
+          }),
+    );
   }
   body = applyEdits(
     body,
     modify(body, ["permission", "vision_analyze"], permission, { formattingOptions: format }),
   );
   return `${bom}${body}`;
+}
+
+function removeOwnedConfig(
+  content: string,
+  config: Record<string, unknown>,
+  manifest: RegistrationManifest,
+): string {
+  const bom = content.startsWith("\uFEFF") ? "\uFEFF" : "";
+  let body = bom ? content.slice(1) : content;
+  const format = formattingOptions(body);
+  if (manifest.plugin.added) {
+    const plugin = config.plugin as string[];
+    const index = plugin.indexOf(OPENCODE_PLUGIN_PACKAGE);
+    body = removeArrayValue(body, ["plugin", index], index, plugin.length);
+  }
+  if (manifest.permission.changed) {
+    body = applyEdits(
+      body,
+      modify(
+        body,
+        ["permission", "vision_analyze"],
+        manifest.permission.previousPresent ? manifest.permission.previous : undefined,
+        { formattingOptions: format },
+      ),
+    );
+  }
+  return `${bom}${body}`;
+}
+
+function findComma(text: string, start: number, end: number): number | undefined {
+  const scanner = createScanner(text, false);
+  scanner.setPosition(start);
+  while (scanner.scan() !== SyntaxKind.EOF) {
+    const offset = scanner.getTokenOffset();
+    if (offset >= end) {
+      break;
+    }
+    if (scanner.getToken() === SyntaxKind.CommaToken) {
+      return offset;
+    }
+  }
+  return undefined;
+}
+
+function requireJsonNode(root: JsonNode | undefined, path: (string | number)[]): JsonNode {
+  const node = root ? findNodeAtLocation(root, path) : undefined;
+  if (!node) {
+    throw registrationError("The owned OpenCode plugin entry could not be located safely.");
+  }
+  return node;
+}
+
+function removeArrayValue(
+  text: string,
+  path: (string | number)[],
+  index: number,
+  length: number,
+): string {
+  const root = parseTree(text, undefined, { allowTrailingComma: true, disallowComments: false });
+  const node = requireJsonNode(root, path);
+  const edits = [{ offset: node.offset, length: node.length, content: "" }];
+  if (length > 1) {
+    const adjacentPath = [...path.slice(0, -1), index === 0 ? 1 : index - 1];
+    const adjacent = requireJsonNode(root, adjacentPath);
+    const comma =
+      index === 0
+        ? findComma(text, node.offset + node.length, adjacent.offset)
+        : findComma(text, adjacent.offset + adjacent.length, node.offset);
+    if (comma === undefined) {
+      throw registrationError("The owned OpenCode plugin separator could not be located safely.");
+    }
+    edits.push({ offset: comma, length: 1, content: "" });
+  }
+  return applyEdits(text, edits);
 }
 
 async function ensureRegularDirectory(path: string, label: string): Promise<void> {
@@ -545,14 +653,141 @@ async function restoreConfig(
 ): Promise<void> {
   const current = await readRegularFile(path, "OpenCode config");
   if (current !== written) {
-    throw registrationError(
-      "The OpenCode config changed before registration could be rolled back.",
-    );
+    throw registrationError("The OpenCode config changed before it could be rolled back.");
   }
   if (original === undefined) {
     await rm(path);
   } else {
     await writeAtomic(path, original);
+  }
+}
+
+function countDirectPluginEntries(config: Record<string, unknown>, configPath: string): number {
+  const plugin = config.plugin;
+  if (
+    plugin !== undefined &&
+    (!Array.isArray(plugin) || !plugin.every((item) => typeof item === "string"))
+  ) {
+    throw registrationError(
+      `The existing OpenCode plugin setting is not a string array: ${configPath}`,
+    );
+  }
+  return Array.isArray(plugin)
+    ? plugin.filter((item) => item === OPENCODE_PLUGIN_PACKAGE).length
+    : 0;
+}
+
+export async function unregisterOpenCodePlugin(
+  options: OpenCodeRegistrationOptions = {},
+): Promise<OpenCodeUnregistrationResult> {
+  const configPath = await resolveConfigPath(options);
+  const manifestPath = resolveManifestPath(options);
+  const [initialContent, initialManifestContent] = await Promise.all([
+    readRegularFile(configPath, "OpenCode config"),
+    readRegularFile(manifestPath, "registration manifest"),
+  ]);
+  const initialConfig = parseConfig(initialContent, configPath);
+  if (initialManifestContent === undefined) {
+    if (countDirectPluginEntries(initialConfig, configPath) > 0) {
+      throw registrationError(
+        `The npm plugin entry has no helper ownership manifest and will not be removed: ${configPath}`,
+      );
+    }
+    return {
+      status: "not-registered",
+      changed: false,
+      configPath,
+      manifestPath,
+    };
+  }
+  const initialManifest = parseManifest(initialManifestContent, manifestPath);
+  verifyOwnedState(initialManifest, initialConfig, configPath);
+  if (initialContent === undefined) {
+    throw registrationError(`The owned OpenCode config no longer exists: ${configPath}`);
+  }
+
+  await Promise.all([
+    assertExistingConfigDirectoryIsRegular(configPath),
+    assertExistingDirectoryIsRegular(manifestPath, "registration manifest"),
+    assertWritableFile(configPath, "OpenCode config"),
+    assertWritableFile(manifestPath, "registration manifest"),
+  ]);
+  const lockPath = `${configPath}.opencode-vision-helper.lock`;
+  let locked = false;
+  try {
+    await writeFile(lockPath, `${process.pid}:${randomUUID()}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    });
+    locked = true;
+  } catch (error) {
+    throw registrationError("Another OpenCode registration update is already in progress.", error);
+  }
+
+  let original: string | undefined;
+  let updated: string | undefined;
+  let configWritten = false;
+  try {
+    const [content, manifestContent] = await Promise.all([
+      readRegularFile(configPath, "OpenCode config"),
+      readRegularFile(manifestPath, "registration manifest"),
+    ]);
+    if (manifestContent === undefined) {
+      throw registrationError("The registration manifest disappeared while removal was starting.");
+    }
+    const manifest = parseManifest(manifestContent, manifestPath);
+    const config = parseConfig(content, configPath);
+    verifyOwnedState(manifest, config, configPath);
+    if (content === undefined) {
+      throw registrationError(`The owned OpenCode config no longer exists: ${configPath}`);
+    }
+    original = content;
+    updated = removeOwnedConfig(content, config, manifest);
+    if (updated !== content) {
+      await options.beforeConfigCommit?.(configPath);
+      const beforeCommit = await readRegularFile(configPath, "OpenCode config");
+      if (beforeCommit !== content) {
+        throw registrationError("The OpenCode config changed while removal was being saved.");
+      }
+      await writeAtomic(configPath, updated);
+      configWritten = true;
+    }
+    try {
+      await options.beforeManifestRemove?.(manifestPath);
+      const latestManifest = await readRegularFile(manifestPath, "registration manifest");
+      if (latestManifest !== manifestContent) {
+        throw registrationError("The registration manifest changed while removal was running.");
+      }
+      await rm(manifestPath);
+    } catch (error) {
+      if (configWritten) {
+        try {
+          await restoreConfig(configPath, original, updated);
+        } catch (rollbackError) {
+          throw registrationError(
+            `Removal failed and the OpenCode config could not be rolled back safely: ${configPath}`,
+            new AggregateError([error, rollbackError]),
+          );
+        }
+      }
+      throw error;
+    }
+    return {
+      status: "unregistered",
+      changed: true,
+      configPath,
+      manifestPath,
+    };
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw registrationError(`Could not unregister the OpenCode plugin: ${configPath}`, error);
+  } finally {
+    if (locked) {
+      await rm(lockPath, { force: true }).catch(() => undefined);
+    }
   }
 }
 

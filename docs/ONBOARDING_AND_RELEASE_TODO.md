@@ -44,13 +44,13 @@ OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. �
 | --- | --- | --- |
 | 전역 CLI | `bin`과 packed-artifact 테스트가 있음 | scoped 공개 패키지로 변경하고 실제 registry 설치 검증 |
 | npm 배포 | scoped 이름과 공개 배포 메타데이터 적용 완료 | 실제 registry publish 및 clean install 검증 |
-| 최초 설정 | 대화형 `setup`과 전역 등록까지 구현 | 설정 조회/재설정 명령 추가 |
-| 업로드 동의 | CLI는 저장 동의 또는 1회성 `--allow-upload`, native tool은 저장 동의를 요구 | 동의 조회·철회 명령 추가 |
-| provider/모델 선택 | setup이 연결된 provider와 image-capable 모델을 선택·저장 | 저장 모델의 CLI/plugin 사용과 drift 진단 |
-| 기본 모델 | CLI와 plugin이 명시 override 후 helper 저장 모델을 사용 | doctor drift 진단 추가 |
-| OpenCode 등록 | setup이 공개 npm 플러그인을 제한적으로 병합하고 ownership manifest를 기록 | 수동 fallback과 ownership 기반 제거 완성 |
-| 권한 설정 | setup이 `ask`/`allow`를 선택받아 정확한 한 항목만 병합 | 충돌 시 수동 fallback과 제거 시 원래 값 복원 완성 |
-| 제거/업그레이드 | wrapper 소유권은 검증하지만 사용자 병합 설정은 제거하지 않음 | 새로 소유하는 설정 조각까지 정확한 소유권/충돌 정책 정의 |
+| 최초 설정 | 대화형 `setup`, 전역 등록, 설정 조회/동의 철회 구현 | 수동 fallback UX 추가 |
+| 업로드 동의 | CLI/native 저장 동의 사용과 조회·철회 구현 | 실제 설치 환경 검증 |
+| provider/모델 선택 | setup 저장, CLI/plugin 사용, doctor drift 진단 구현 | 실제 Go/Zen 검증 |
+| 기본 모델 | override 우선순위와 doctor drift 진단 구현 | 실제 설치 환경 검증 |
+| OpenCode 등록 | 제한적 병합, ownership manifest, exact 제거 구현 | 수동 fallback 완성 |
+| 권한 설정 | 선택·병합·drift 진단과 제거 시 원래 값 복원 구현 | 수동 fallback 완성 |
+| 제거/업그레이드 | 직접 등록과 legacy wrapper가 각각 exact ownership을 검증해 제거 | package upgrade lifecycle 검증 |
 
 ## 먼저 결정할 제품 정책
 
@@ -120,7 +120,7 @@ OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. �
 - [x] manifest에는 도구가 추가하거나 명시적으로 바꾼 정확한 항목/값과 원래 권한만
   기록하며 다른 설정을 소유했다고
   간주하지 않는다.
-- [ ] uninstall은 현재 값이 manifest와 정확히 일치할 때만 해당 항목을 제거한다.
+- [x] `unregister`는 현재 값이 manifest와 정확히 일치할 때만 해당 항목을 제거한다.
 - [x] 조직 관리 설정, 프로젝트 설정, agent 설정이 전역값을 override할 수 있음을
   결과 화면에 알린다.
 
@@ -416,12 +416,12 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [ ] `OPENCODE_CONFIG_DIR` 또는 `OPENCODE_CONFIG`를 따르는 별도 opt-in이 필요한지
   공개 피드백 후 재검토한다. 현재 기본값은 공식 global config
   `~/.config/opencode/opencode.json`이다.
-- [ ] `uninstall` 또는 `setup --uninstall`은 exact ownership을 확인해 helper가 만든
-  plugin entry/wrapper/manifest만 제거한다.
-- [ ] uninstall 기본 동작은 helper 설정과 동의 기록을 보존하고, `--purge-config` 같은
-  명시 옵션에서만 exact path 확인 후 제거하도록 결정한다.
-- [x] 현재 등록 구현에서 OpenCode auth, 다른 plugin, agent, command, tool, project
-  config는 설치 대상에서 제외한다. 제거 구현에서도 같은 경계를 유지해야 한다.
+- [x] `unregister`와 legacy adapter uninstaller는 exact ownership을 확인해 helper가
+  만든 plugin entry/wrapper/manifest만 제거한다.
+- [x] `unregister` 기본 동작은 helper 설정, 선택 모델, 동의 기록을 보존한다. v1에서는
+  helper config purge 옵션을 제공하지 않고 사용자가 별도로 관리하도록 결정한다.
+- [x] 등록과 제거 구현 모두 OpenCode auth, 다른 plugin, agent, command, tool, project
+  config를 대상에서 제외한다.
 - [x] 완료 후 OpenCode 재시작 필요성과 `doctor` 검증 명령을 출력한다.
 
 ## 테스트 TODO

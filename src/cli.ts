@@ -22,6 +22,7 @@ import { AppError, asAppError } from "./errors.js";
 import { prepareImage } from "./imaging.js";
 import { parseModelRef } from "./model.js";
 import { type AnalysisResult, analyzeWithOpenCode } from "./opencode.js";
+import { unregisterOpenCodePlugin } from "./registration.js";
 import { DEFAULT_PROMPT, formatReport } from "./report.js";
 import { runInteractiveSetup } from "./setup.js";
 
@@ -43,6 +44,7 @@ export type CliServices = {
   readConfig: typeof readHelperConfig;
   readConfigState: typeof readHelperConfigState;
   resetConsent: typeof resetCloudUploadConsent;
+  unregisterPlugin: typeof unregisterOpenCodePlugin;
 };
 
 const DEFAULT_SERVICES: CliServices = {
@@ -53,6 +55,7 @@ const DEFAULT_SERVICES: CliServices = {
   readConfig: readHelperConfig,
   readConfigState: readHelperConfigState,
   resetConsent: resetCloudUploadConsent,
+  unregisterPlugin: unregisterOpenCodePlugin,
 };
 
 const HELP = `opencode-vision-helper
@@ -63,6 +66,7 @@ Usage:
                                       [--timeout <seconds>]
   opencode-vision-helper doctor [--json]
   opencode-vision-helper setup [--config-only]
+  opencode-vision-helper unregister [--json]
   opencode-vision-helper config show [--json]
   opencode-vision-helper config reset-consent [--json]
 
@@ -294,6 +298,32 @@ async function runConfig(args: string[], services: CliServices): Promise<number>
   );
 }
 
+async function runUnregister(args: string[], services: CliServices): Promise<number> {
+  const json = parseOptionalJson(args);
+  const result = await services.unregisterPlugin();
+  if (json) {
+    printJson({
+      status: result.status,
+      changed: result.changed,
+      config_path: result.configPath,
+      manifest_path: result.manifestPath,
+      helper_config_preserved: true,
+    });
+  } else if (result.status === "unregistered") {
+    process.stdout.write(
+      `Helper-owned OpenCode registration removed: ${result.configPath}\n` +
+        "Saved helper configuration and cloud-upload consent were preserved.\n" +
+        "Restart OpenCode. To remove the npm package too, run npm uninstall -g @pawprint0706/opencode-vision-helper.\n",
+    );
+  } else {
+    process.stdout.write(
+      `No helper-owned OpenCode registration was found: ${result.configPath}\n` +
+        "Saved helper configuration and cloud-upload consent were preserved.\n",
+    );
+  }
+  return 0;
+}
+
 export async function main(
   args = process.argv.slice(2),
   services: CliServices = DEFAULT_SERVICES,
@@ -311,6 +341,9 @@ export async function main(
   }
   if (command === "setup") {
     return runSetup(args.slice(1), services);
+  }
+  if (command === "unregister") {
+    return runUnregister(args.slice(1), services);
   }
   if (command === "config") {
     return runConfig(args.slice(1), services);

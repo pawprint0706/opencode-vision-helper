@@ -11,6 +11,7 @@ import {
   inspectOpenCodeRegistration,
   OPENCODE_PLUGIN_PACKAGE,
   registerOpenCodePlugin,
+  unregisterOpenCodePlugin,
 } from "../src/registration.js";
 
 let temporaryRoot: string;
@@ -286,6 +287,186 @@ describe("OpenCode global registration", () => {
 
     await expect(inspectOpenCodeRegistration("ask", location)).rejects.toThrow(
       /changed outside setup/,
+    );
+  });
+});
+
+describe("OpenCode global unregistration", () => {
+  it("removes only owned JSONC entries while preserving comments and unrelated settings", async () => {
+    const location = paths("jsonc");
+    await mkdir(dirname(location.configPath), { recursive: true });
+    const original =
+      '\uFEFF{\r\n  // keep root comment\r\n  "theme": "dark",\r\n  "plugin": [\r\n    "other", // keep plugin comment\r\n  ],\r\n  "permission": {\r\n    "bash": "deny",\r\n  },\r\n}\r\n';
+    await writeFile(location.configPath, original);
+    await registerOpenCodePlugin("ask", location);
+
+    const registered = await readFile(location.configPath, "utf8");
+    expect(registered).toContain("// keep plugin comment");
+    await expect(unregisterOpenCodePlugin(location)).resolves.toMatchObject({
+      status: "unregistered",
+      changed: true,
+    });
+
+    const updated = await readFile(location.configPath, "utf8");
+    expect(updated.startsWith("\uFEFF")).toBe(true);
+    expect(updated).toContain("// keep root comment");
+    expect(updated).toContain("// keep plugin comment");
+    expect(updated).toContain("\r\n");
+    expect(parse(updated.slice(1), undefined, { allowTrailingComma: true })).toEqual({
+      theme: "dark",
+      plugin: ["other"],
+      permission: { bash: "deny" },
+    });
+    await expect(readFile(location.manifestPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("restores the exact permission that setup replaced", async () => {
+    const location = paths();
+    await mkdir(dirname(location.configPath), { recursive: true });
+    await writeFile(
+      location.configPath,
+      JSON.stringify(
+        {
+          plugin: ["other"],
+          permission: { vision_analyze: { "*": "deny" }, bash: "ask" },
+        },
+        null,
+        2,
+      ),
+    );
+    const plan = await inspectOpenCodeRegistration("allow", location);
+    await registerOpenCodePlugin("allow", {
+      ...location,
+      expectedRevision: plan.revision,
+      allowPermissionChange: true,
+    });
+
+    await unregisterOpenCodePlugin(location);
+
+    expect(JSON.parse(await readFile(location.configPath, "utf8"))).toEqual({
+      plugin: ["other"],
+      permission: { vision_analyze: { "*": "deny" }, bash: "ask" },
+    });
+  });
+
+  it("leaves a pre-existing npm plugin entry and restores only the owned permission", async () => {
+    const location = paths();
+    await mkdir(dirname(location.configPath), { recursive: true });
+    await writeFile(
+      location.configPath,
+      `${JSON.stringify({ plugin: [OPENCODE_PLUGIN_PACKAGE], permission: { vision_analyze: "deny" } }, null, 2)}\n`,
+    );
+    const plan = await inspectOpenCodeRegistration("ask", location);
+    await registerOpenCodePlugin("ask", {
+      ...location,
+      expectedRevision: plan.revision,
+      allowPermissionChange: true,
+    });
+
+    await unregisterOpenCodePlugin(location);
+
+    expect(JSON.parse(await readFile(location.configPath, "utf8"))).toEqual({
+      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      permission: { vision_analyze: "deny" },
+    });
+  });
+
+  it("preserves unrelated plugin entries added after setup", async () => {
+    const location = paths();
+    await registerOpenCodePlugin("ask", location);
+    const config = JSON.parse(await readFile(location.configPath, "utf8"));
+    config.plugin.push("later-plugin");
+    await writeFile(location.configPath, `${JSON.stringify(config, null, 2)}\n`);
+
+    await unregisterOpenCodePlugin(location);
+
+    expect(JSON.parse(await readFile(location.configPath, "utf8"))).toEqual({
+      plugin: ["later-plugin"],
+      permission: {},
+    });
+  });
+
+  it("refuses changed owned values and unowned direct entries", async () => {
+    const owned = paths();
+    await registerOpenCodePlugin("ask", owned);
+    const config = JSON.parse(await readFile(owned.configPath, "utf8"));
+    config.permission.vision_analyze = "deny";
+    await writeFile(owned.configPath, `${JSON.stringify(config, null, 2)}\n`);
+
+    await expect(unregisterOpenCodePlugin(owned)).rejects.toThrow(/changed outside setup/);
+    expect(JSON.parse(await readFile(owned.configPath, "utf8"))).toMatchObject({
+      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      permission: { vision_analyze: "deny" },
+    });
+
+    const unowned = {
+      configPath: join(temporaryRoot, "unowned", "opencode.json"),
+      manifestPath: join(temporaryRoot, "unowned", "registration.json"),
+    };
+    await mkdir(dirname(unowned.configPath), { recursive: true });
+    await writeFile(
+      unowned.configPath,
+      `${JSON.stringify({ plugin: [OPENCODE_PLUGIN_PACKAGE] }, null, 2)}\n`,
+    );
+    await expect(unregisterOpenCodePlugin(unowned)).rejects.toThrow(/no helper ownership manifest/);
+    expect(JSON.parse(await readFile(unowned.configPath, "utf8"))).toEqual({
+      plugin: [OPENCODE_PLUGIN_PACKAGE],
+    });
+  });
+
+  it("is idempotent once no owned registration remains", async () => {
+    const location = paths();
+    await registerOpenCodePlugin("ask", location);
+    await unregisterOpenCodePlugin(location);
+    const configBefore = await readFile(location.configPath, "utf8");
+
+    await expect(unregisterOpenCodePlugin(location)).resolves.toMatchObject({
+      status: "not-registered",
+      changed: false,
+    });
+    expect(await readFile(location.configPath, "utf8")).toBe(configBefore);
+  });
+
+  it("rolls the config back if ownership manifest removal fails", async () => {
+    const location = paths();
+    await registerOpenCodePlugin("ask", location);
+    const configBefore = await readFile(location.configPath, "utf8");
+    const manifestBefore = await readFile(location.manifestPath, "utf8");
+
+    await expect(
+      unregisterOpenCodePlugin({
+        ...location,
+        beforeManifestRemove: async () => {
+          throw new Error("injected removal failure");
+        },
+      }),
+    ).rejects.toThrow(/Could not unregister the OpenCode plugin/);
+    expect(await readFile(location.configPath, "utf8")).toBe(configBefore);
+    expect(await readFile(location.manifestPath, "utf8")).toBe(manifestBefore);
+  });
+
+  it("does not overwrite a concurrent config edit during removal", async () => {
+    const location = paths();
+    await registerOpenCodePlugin("ask", location);
+
+    await expect(
+      unregisterOpenCodePlugin({
+        ...location,
+        beforeConfigCommit: async (path) => {
+          await writeFile(
+            path,
+            `${JSON.stringify({ plugin: [OPENCODE_PLUGIN_PACKAGE], permission: { vision_analyze: "ask" }, theme: "changed" }, null, 2)}\n`,
+          );
+        },
+      }),
+    ).rejects.toThrow(/changed while removal/);
+    expect(JSON.parse(await readFile(location.configPath, "utf8"))).toMatchObject({
+      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      permission: { vision_analyze: "ask" },
+      theme: "changed",
+    });
+    await expect(readFile(location.manifestPath, "utf8")).resolves.toContain(
+      "opencode-vision-helper",
     );
   });
 });

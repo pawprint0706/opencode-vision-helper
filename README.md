@@ -82,6 +82,7 @@ opencode-vision-helper analyze <image> [--prompt <text>] [--model <provider/mode
                                       [--timeout <seconds>]
 opencode-vision-helper doctor
 opencode-vision-helper setup [--config-only]
+opencode-vision-helper unregister [--json]
 opencode-vision-helper config show [--json]
 opencode-vision-helper config reset-consent [--json]
 ```
@@ -96,6 +97,15 @@ URLs are not part of v1.
 selected model and permission. After reset, CLI analysis needs the one-invocation
 `--allow-upload` flag, while the native tool remains disabled until setup is run
 again.
+
+Run `opencode-vision-helper unregister` before removing the global npm package. It
+requires the setup-created ownership manifest and removes only the plugin entry and
+permission value owned by that manifest. A replaced permission is restored to its
+exact previous JSON value; unrelated plugins, settings, credentials, and JSONC
+comments are preserved. The helper config, selected model, and cloud-upload consent
+remain saved. If an owned value has changed or a direct plugin entry has no ownership
+manifest, removal stops without claiming or deleting it. Restart OpenCode afterward,
+then run `npm uninstall -g @pawprint0706/opencode-vision-helper` if desired.
 
 The native tool can use an explicit local path or, when `image` is omitted, the
 sole image attached to the current OpenCode user message. Local/file URL

@@ -153,6 +153,12 @@ function services(overrides: Partial<CliServices> = {}): CliServices {
       path: "config.json",
       config: { ...acceptedConfig(), consent: { cloudUpload: false } },
     }),
+    unregisterPlugin: async () => ({
+      status: "unregistered",
+      changed: true,
+      configPath: "opencode.json",
+      manifestPath: "opencode-registration.json",
+    }),
     ...overrides,
   };
 }
@@ -227,6 +233,7 @@ describe("CLI process contract", () => {
     { args: ["doctor", "--unknown"], code: "BAD_REQUEST" },
     { args: ["setup"], code: "BAD_REQUEST" },
     { args: ["setup", "--unknown"], code: "BAD_REQUEST" },
+    { args: ["unregister", "--unknown"], code: "BAD_REQUEST" },
     { args: ["config", "show"], code: "CONFIGURATION" },
     { args: ["config", "unknown"], code: "BAD_REQUEST" },
     { args: ["config", "show", "--unknown"], code: "BAD_REQUEST" },
@@ -275,6 +282,40 @@ describe("CLI process contract", () => {
 
     await expect(main(["setup", "--config-only"], services({ runSetup }))).resolves.toBe(0);
     expect(runSetup).toHaveBeenCalledWith({ registerOpenCode: false });
+  });
+
+  it("removes the owned registration and reports preserved helper settings", async () => {
+    const unregisterPlugin = vi.fn(services().unregisterPlugin);
+    const result = await captureMain(["unregister", "--json"], services({ unregisterPlugin }));
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      status: "unregistered",
+      changed: true,
+      config_path: "opencode.json",
+      manifest_path: "opencode-registration.json",
+      helper_config_preserved: true,
+    });
+    expect(result.stderr).toBe("");
+    expect(unregisterPlugin).toHaveBeenCalledOnce();
+  });
+
+  it("prints an idempotent human unregister result", async () => {
+    const result = await captureMain(
+      ["unregister"],
+      services({
+        unregisterPlugin: async () => ({
+          status: "not-registered",
+          changed: false,
+          configPath: "opencode.json",
+          manifestPath: "opencode-registration.json",
+        }),
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("No helper-owned OpenCode registration");
+    expect(result.stdout).toContain("cloud-upload consent were preserved");
   });
 
   it("shows the saved config without exposing unrelated data", async () => {

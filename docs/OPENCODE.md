@@ -44,6 +44,21 @@ Resetting consent preserves the configured model and OpenCode permission. It doe
 not edit OpenCode configuration or unregister the plugin. The native tool then
 returns `CONSENT_REQUIRED` until setup is completed again.
 
+Remove a direct registration created by setup before uninstalling the npm package:
+
+```powershell
+opencode-vision-helper unregister
+npm uninstall -g @pawprint0706/opencode-vision-helper
+```
+
+`unregister` validates the ownership manifest and current owned values. It removes
+only a plugin entry that setup added and restores only the previous
+`permission.vision_analyze` value recorded by setup. Other plugins, permissions,
+settings, JSONC comments, credentials, and the helper config/consent remain intact.
+If ownership is missing or an owned value has drifted, it refuses the removal.
+Restart OpenCode after a successful unregister. `--json` provides a stable result
+for scripts.
+
 ## Adapter installation
 
 Build this repository first:
@@ -161,7 +176,7 @@ alternative to installing the wrapper, package-only registration can add
 "timeoutMs": 120000 }]` to the existing `plugin` array. Do not use both registration
 methods in the same configuration.
 
-## Adapter removal
+## Legacy adapter removal
 
 ```powershell
 npm run adapter:uninstall -- --scope project
