@@ -206,13 +206,12 @@ into this project or recorded in validation output.
 ## Distribution decision
 
 The GitHub source repository is public and the package now carries scoped public npm
-metadata for `@pawprint0706/opencode-vision-helper`, while distribution remains
-local-only and unpublished. Interactive setup, ownership-tracked global registration,
-release policy, packed-artifact installation, and the isolated cross-platform global
-CLI shim gate are complete. Before the external release, the maintainer must confirm
-npm scope ownership and 2FA, choose and authorize the publish path, finalize the
-release date/tag, and record the published-artifact integrity/provenance and clean
-install smoke test. The original
+metadata for `@pawprint0706/opencode-vision-helper`. Interactive setup,
+ownership-tracked global registration, release policy, packed-artifact installation,
+and the isolated cross-platform global CLI shim gate are complete. The maintainer
+confirmed the matching npm account, `auth-and-writes` 2FA, and the manual initial
+publish path on 2026-08-05. Published-artifact integrity and clean-install results are
+recorded after the registry write. The original
 `orca-vision-helper` was marked deprecated in commit
 `ace115f` and archived on 2026-08-05 after its historical migration records and
 ownership-aware removal guidance were preserved. That repository retirement did not

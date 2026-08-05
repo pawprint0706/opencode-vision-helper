@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The project follows
 Semantic Versioning; while the major version is `0`, minor releases may still
 contain intentional interface changes that are called out below.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-08-05
 
 ### Added
 

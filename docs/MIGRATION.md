@@ -28,8 +28,9 @@ configuration, model metadata, and model-specific wire protocols.
   exactly when a custom prompt is supplied.
 - Do not store, update, delete, or print OpenCode credentials.
 - Defer MCP until a non-OpenCode client or a multi-tool server is required.
-- Keep the current distribution local-only; public publication is a later,
-  separately approved phase.
+- Treat public npm publication as a separately approved release phase. Registry
+  writes require an explicit maintainer decision and must preserve the credential and
+  lifecycle boundaries above.
 
 ## Migration phases
 
@@ -61,13 +62,14 @@ configuration, model metadata, and model-specific wire protocols.
    content hashes, preflight collision checks, current-run rollback, and preserve
    all OpenCode config/auth state. The packed artifact is installed into an
    clean temporary consumer and its plugin export and adapter lifecycle are verified.
-6. **Complete for local-only v1:** the packaged CLI is validated end-to-end against a local fake
-   OpenCode executable, and live Go/Zen CLI plus TUI and Desktop validation has
-   passed. The remote Windows/macOS/Linux matrix also passes on Node.js 20 and 24.
-   The target source repository is public. The original `orca-vision-helper` was
-   marked deprecated and archived after its migration records and removal guidance
-   were preserved. Public package distribution remains outside the current local-only
-   release boundary and is separately deferred.
+6. **Complete release candidate:** the packaged CLI is validated end-to-end against a
+   local fake OpenCode executable, and live Go/Zen CLI plus TUI and Desktop validation
+   has passed. The remote Windows/macOS/Linux matrix also passes on Node.js 20 and 24,
+   including an isolated global npm install and platform CLI shim execution. The
+   target source repository is public. The original `orca-vision-helper` was marked
+   deprecated and archived after its migration records and removal guidance were
+   preserved. Initial public npm publication was separately approved for the 0.1.0
+   release process.
 
 CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and

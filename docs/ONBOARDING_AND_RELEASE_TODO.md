@@ -234,14 +234,14 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 
 ### npm 및 릴리스 소유권
 
-- [ ] npm 계정 `pawprint0706`이 존재하고 해당 scope에 publish할 권한이 있는지
-  확인한다.
+- [x] npm 계정 `pawprint0706`이 존재하고 해당 scope에 publish할 권한이 있는지
+  확인한다. 2026-08-05 `npm whoami`로 개인 scope와 일치하는 인증 계정을 확인했다.
 - [x] 패키지 이름 `@pawprint0706/opencode-vision-helper`의 사용 가능 여부 또는 현재
   소유권을 확인한다. 2026-08-05 공개 registry의 인증 없는 package 조회는 404이며,
   실제 scope publish 권한은 계정 인증 단계에서 별도로 확인해야 한다.
-- [ ] npm publish용 2FA를 활성화한다.
-- [ ] 최초 배포 방식을 수동 `npm publish --access public` 또는 CI trusted
-  publishing 중 선택한다.
+- [x] npm publish용 2FA를 활성화한다. `auth-and-writes` 모드를 확인했다.
+- [x] 최초 배포 방식을 수동 `npm publish --access public`로 선택하고 승인했다. 후속
+  릴리스는 trusted publishing 전환을 우선 검토한다.
 - [ ] CI 배포를 선택하면 GitHub Actions OIDC trusted publisher, 최소 권한,
   provenance, 보호된 release/tag 절차를 설정하고 장기 publish token은 두지 않는다.
 - [x] semver, changelog, Git tag, GitHub Release, deprecation/rollback 정책을 정한다.
@@ -494,7 +494,7 @@ opencode-vision-helper analyze .\screen.png
   권한 prompt 미표시 문제의 troubleshooting을 추가한다.
 - [x] 개발 checkout용 `adapter:install`과 `setup --config-only` 문서를 일반 사용자
   Quick start와 분리한다.
-- [ ] README와 `docs/OPENCODE.md`의 private/unpublished 및 unscoped package 예시를
+- [x] README와 `docs/OPENCODE.md`의 private/unpublished 및 unscoped package 예시를
   공개 scoped package 기준으로 갱신한다.
 - [ ] `docs/VALIDATION.md`에 publish된 artifact의 version, integrity/provenance,
   clean-install 결과를 기록한다.

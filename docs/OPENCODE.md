@@ -4,16 +4,16 @@ The optional OpenCode adapter exposes one tool named `vision_analyze`. It uses
 the SDK client for the OpenCode server that loaded the plugin, so authentication,
 provider configuration, and model routing remain owned by OpenCode.
 
-The adapter and ownership-safe lifecycle commands are implemented. The scoped public
-package metadata is prepared but the package is still unpublished. Installation from
-the packed artifact is covered by the package verification suite.
+The adapter and ownership-safe lifecycle commands are implemented. Installation from
+the scoped public package and its platform-specific global CLI shim is covered by the
+package verification suite.
 
 Before using either the CLI or native tool, connect OpenCode Go or Zen through
 OpenCode's `/connect` flow and choose an image-capable `opencode-go/*` or
 `opencode/*` model. This helper never reads, imports, copies, or changes the
 resulting credentials.
 
-After registry publication, the recommended global installation flow is:
+The recommended global installation flow is:
 
 ```powershell
 npm install -g @pawprint0706/opencode-vision-helper
