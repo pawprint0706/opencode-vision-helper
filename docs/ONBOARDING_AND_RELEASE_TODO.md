@@ -236,8 +236,9 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 
 - [ ] npm 계정 `pawprint0706`이 존재하고 해당 scope에 publish할 권한이 있는지
   확인한다.
-- [ ] 패키지 이름 `@pawprint0706/opencode-vision-helper`의 사용 가능 여부 또는 현재
-  소유권을 확인한다.
+- [x] 패키지 이름 `@pawprint0706/opencode-vision-helper`의 사용 가능 여부 또는 현재
+  소유권을 확인한다. 2026-08-05 공개 registry의 인증 없는 package 조회는 404이며,
+  실제 scope publish 권한은 계정 인증 단계에서 별도로 확인해야 한다.
 - [ ] npm publish용 2FA를 활성화한다.
 - [ ] 최초 배포 방식을 수동 `npm publish --access public` 또는 CI trusted
   publishing 중 선택한다.
@@ -369,8 +370,8 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   OpenCode timeout의 실제 터미널 회귀 검증은 남아 있다.
 - [x] 재실행 시 기존의 유효한 동의를 유지하고 현재 permission/provider/model을
   기본 선택으로 표시하며, 결과가 같으면 설정 파일을 다시 쓰지 않는다.
-- [ ] `setup --json`을 제공한다면 prompt를 섞지 말고 기계 판독 가능한 결과만
-  stdout에 출력한다.
+- [x] v1에서는 대화형 동의 흐름과 충돌하는 `setup --json`을 제공하지 않는다. 추후
+  자동화용 setup을 추가할 때 prompt 없는 별도 명시 동의 계약으로 설계한다.
 
 ### P1. CLI 설정 사용
 
@@ -416,9 +417,9 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   fallback UX는 남아 있다.
 - [x] 설정 저장 성공 후 OpenCode 등록이 실패하면 helper 설정이 남았음을 정확히
   알리고, config/manifest transaction에서 새로 바꾼 OpenCode config는 rollback한다.
-- [ ] `OPENCODE_CONFIG_DIR` 또는 `OPENCODE_CONFIG`를 따르는 별도 opt-in이 필요한지
-  공개 피드백 후 재검토한다. 현재 기본값은 공식 global config
-  `~/.config/opencode/opencode.json`이다.
+- [x] v1에서는 `OPENCODE_CONFIG_DIR` 또는 `OPENCODE_CONFIG` opt-in을 제공하지 않는다.
+  기본값은 공식 global config `~/.config/opencode/opencode.json`이며 공개 피드백 후
+  별도 버전에서 재검토한다.
 - [x] `unregister`와 legacy adapter uninstaller는 exact ownership을 확인해 helper가
   만든 plugin entry/wrapper/manifest만 제거한다.
 - [x] `unregister` 기본 동작은 helper 설정, 선택 모델, 동의 기록을 보존한다. v1에서는
@@ -444,7 +445,7 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   OpenCode fake fixture로 로드한다.
 - [ ] 전역 npm 설치로 생성된 CLI shim을 Windows/macOS/Linux에서 실행한다.
 - [x] 저장된 기본 모델과 명시 override 우선순위를 CLI와 native tool에서 테스트한다.
-- [ ] project/agent override 때문에 global permission과 실제 permission이 다른 경우의
+- [x] project/agent override 때문에 global permission과 실제 permission이 다른 경우의
   안내를 테스트한다.
 - [x] uninstall/upgrade가 사용자가 수정한 entry를 삭제하거나 덮어쓰지 않는지
   테스트한다.

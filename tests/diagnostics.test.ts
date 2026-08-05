@@ -187,4 +187,30 @@ describe("installation diagnostics", () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it("reports global permission drift while warning that narrower scopes can override it", async () => {
+    const result = await diagnoseInstallation("project-root", undefined, {
+      services: services({
+        diagnoseRegistration: async () => ({
+          configPath: "opencode.json",
+          manifestPath: "registration.json",
+          npmPluginEntries: 1,
+          legacyWrapperPresent: false,
+          legacyWrapperOwned: false,
+          pluginRegistered: true,
+          duplicateRegistration: false,
+          permission: "allow",
+          permissionSource: "vision_analyze",
+          ownershipManifestPresent: false,
+        }),
+      }),
+    });
+
+    expect(result.opencode_registration).toMatchObject({
+      permission: "allow",
+      permission_matches_helper: false,
+      project_or_agent_override_possible: true,
+    });
+    expect(result.ok).toBe(false);
+  });
 });

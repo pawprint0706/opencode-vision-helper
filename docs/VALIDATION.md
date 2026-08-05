@@ -50,6 +50,11 @@ remaining a one-time manual observation.
 | No OpenCode config/auth mutation during packaged adapter lifecycle | config/auth sentinels in `scripts/verify-package.mjs` |
 | Windows, macOS, and Linux automation definition | `.github/workflows/ci.yml` |
 
+The diagnostics tests also keep the reported global permission distinct from the
+warning that project, agent, or managed configuration can override it. The helper
+does not claim to observe OpenCode's final merged permission when that API is not
+available.
+
 The workflow matrix is configured for all three operating systems with Node.js 20
 and 24. The matrix passed for commit `44e9114` in
 [CI run 30934005206](https://github.com/pawprint0706/opencode-vision-helper/actions/runs/30934005206).
