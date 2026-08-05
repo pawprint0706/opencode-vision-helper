@@ -65,6 +65,16 @@ export type OpenCodeRegistrationPlan = {
   };
 };
 
+export type OpenCodeManualRegistrationPlan = {
+  configPaths: string[];
+  snippet: OpenCodeRegistrationPlan["snippet"];
+};
+
+export type OpenCodeManualRegistrationVerification = {
+  complete: boolean;
+  reason?: string;
+};
+
 export type OpenCodeRegistrationResult = {
   status: "registered" | "already-registered";
   changed: boolean;
@@ -226,6 +236,96 @@ function resolveManifestPath(options: OpenCodeRegistrationOptions): string {
         REGISTRATION_MANIFEST_FILENAME,
       ),
   );
+}
+
+export async function createOpenCodeManualRegistrationPlan(
+  permission: HelperPermission,
+  options: OpenCodeRegistrationOptions = {},
+): Promise<OpenCodeManualRegistrationPlan> {
+  let configPaths: string[];
+  if (options.configPath) {
+    const configPath = resolve(options.configPath);
+    assertConfigExtension(configPath);
+    configPaths = [configPath];
+  } else {
+    const directory = resolve(options.userHome ?? homedir(), ".config", "opencode");
+    const jsonPath = resolve(directory, "opencode.json");
+    const jsoncPath = resolve(directory, "opencode.jsonc");
+    const [jsonEntry, jsoncEntry] = await Promise.all([
+      lstatOptional(jsonPath),
+      lstatOptional(jsoncPath),
+    ]);
+    configPaths = [...(jsonEntry ? [jsonPath] : []), ...(jsoncEntry ? [jsoncPath] : [])];
+    if (configPaths.length === 0) {
+      configPaths = [jsonPath];
+    }
+  }
+  return {
+    configPaths,
+    snippet: {
+      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      permission: { vision_analyze: permission },
+    },
+  };
+}
+
+export async function verifyOpenCodeManualRegistration(
+  plan: OpenCodeManualRegistrationPlan,
+  options: OpenCodeRegistrationOptions = {},
+): Promise<OpenCodeManualRegistrationVerification> {
+  try {
+    const contents = await Promise.all(
+      plan.configPaths.map((path) => readRegularFile(path, "OpenCode config")),
+    );
+    const existing = plan.configPaths.flatMap((path, index) =>
+      contents[index] === undefined ? [] : [{ path, content: contents[index] as string }],
+    );
+    if (existing.length !== 1) {
+      return {
+        complete: false,
+        reason:
+          existing.length === 0
+            ? "The intended OpenCode config does not exist yet."
+            : "More than one global OpenCode config still exists; consolidate them before continuing.",
+      };
+    }
+    const target = existing[0];
+    if (!target) {
+      return { complete: false, reason: "The intended OpenCode config could not be verified." };
+    }
+    const config = parseConfig(target.content, target.path);
+    if (countDirectPluginEntries(config, target.path) !== 1) {
+      return {
+        complete: false,
+        reason: `The exact npm plugin entry is not present once in ${target.path}.`,
+      };
+    }
+    const permission = isRecord(config.permission) ? config.permission.vision_analyze : undefined;
+    if (permission !== plan.snippet.permission.vision_analyze) {
+      return {
+        complete: false,
+        reason: `permission.vision_analyze does not match ${JSON.stringify(plan.snippet.permission.vision_analyze)} in ${target.path}.`,
+      };
+    }
+    const wrapperPath = resolve(dirname(target.path), "plugins", "vision-helper.ts");
+    if ((await readRegularFile(wrapperPath, "legacy vision-helper wrapper")) !== undefined) {
+      return {
+        complete: false,
+        reason: `A legacy wrapper would load beside the npm plugin: ${wrapperPath}`,
+      };
+    }
+    const manifestPath = resolveManifestPath(options);
+    const manifestContent = await readRegularFile(manifestPath, "registration manifest");
+    if (manifestContent !== undefined) {
+      verifyOwnedState(parseManifest(manifestContent, manifestPath), config, target.path);
+    }
+    return { complete: true };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { complete: false, reason: error.message };
+    }
+    throw registrationError("Could not verify the manual OpenCode registration.", error);
+  }
 }
 
 function parseConfig(content: string | undefined, path: string): Record<string, unknown> {

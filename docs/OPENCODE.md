@@ -26,6 +26,15 @@ only `@pawprint0706/opencode-vision-helper` and `permission.vision_analyze` into
 existing global `opencode.json` or `opencode.jsonc`. Existing comments and unrelated
 settings are preserved. Restart OpenCode afterward.
 
+If automatic inspection or minimal editing is unsafe (for example, both global
+config files exist, JSONC cannot be parsed, the target is read-only, or ownership
+has drifted), setup switches to a manual fallback. After final approval it saves
+only the helper config, displays every candidate target and the exact snippet, and
+does not call the automatic registration writer. Setup remains incomplete with exit
+code 1 until the user confirms the merge and a read-only verification finds exactly
+one matching direct registration, the selected permission, no legacy-wrapper
+duplicate, and no conflicting ownership manifest.
+
 Run `opencode-vision-helper doctor --json` to inspect the saved consent/model, the
 model's current provider connection and image capability, npm or legacy-wrapper
 registration, duplicate loading, and the global permission value. Doctor never reads

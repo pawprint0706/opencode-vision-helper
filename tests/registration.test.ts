@@ -7,11 +7,13 @@ import { parse } from "jsonc-parser";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  createOpenCodeManualRegistrationPlan,
   diagnoseOpenCodeRegistration,
   inspectOpenCodeRegistration,
   OPENCODE_PLUGIN_PACKAGE,
   registerOpenCodePlugin,
   unregisterOpenCodePlugin,
+  verifyOpenCodeManualRegistration,
 } from "../src/registration.js";
 
 let temporaryRoot: string;
@@ -36,6 +38,56 @@ afterEach(async () => {
 });
 
 describe("OpenCode global registration", () => {
+  it("provides manual targets without choosing between two existing global configs", async () => {
+    const directory = join(temporaryRoot, ".config", "opencode");
+    await mkdir(directory, { recursive: true });
+    const jsonPath = join(directory, "opencode.json");
+    const jsoncPath = join(directory, "opencode.jsonc");
+    await Promise.all([writeFile(jsonPath, "{}\n"), writeFile(jsoncPath, "{}\n")]);
+
+    await expect(
+      createOpenCodeManualRegistrationPlan("ask", { userHome: temporaryRoot }),
+    ).resolves.toEqual({
+      configPaths: [resolve(jsonPath), resolve(jsoncPath)],
+      snippet: {
+        plugin: [OPENCODE_PLUGIN_PACKAGE],
+        permission: { vision_analyze: "ask" },
+      },
+    });
+  });
+
+  it("verifies one exact manual registration and rejects ambiguity or a legacy wrapper", async () => {
+    const directory = join(temporaryRoot, ".config", "opencode");
+    await mkdir(directory, { recursive: true });
+    const jsonPath = join(directory, "opencode.json");
+    const jsoncPath = join(directory, "opencode.jsonc");
+    await Promise.all([writeFile(jsonPath, "{}\n"), writeFile(jsoncPath, "{}\n")]);
+    const plan = await createOpenCodeManualRegistrationPlan("ask", { userHome: temporaryRoot });
+
+    await expect(
+      verifyOpenCodeManualRegistration(plan, { userHome: temporaryRoot }),
+    ).resolves.toMatchObject({ complete: false, reason: expect.stringContaining("More than one") });
+
+    await rm(jsoncPath);
+    await writeFile(
+      jsonPath,
+      `${JSON.stringify({ plugin: [OPENCODE_PLUGIN_PACKAGE], permission: { vision_analyze: "ask", bash: "deny" } }, null, 2)}\n`,
+    );
+    await expect(
+      verifyOpenCodeManualRegistration(plan, { userHome: temporaryRoot }),
+    ).resolves.toEqual({ complete: true });
+
+    const wrapperPath = join(directory, "plugins", "vision-helper.ts");
+    await mkdir(dirname(wrapperPath), { recursive: true });
+    await writeFile(wrapperPath, "// legacy\n");
+    await expect(
+      verifyOpenCodeManualRegistration(plan, { userHome: temporaryRoot }),
+    ).resolves.toMatchObject({
+      complete: false,
+      reason: expect.stringContaining("legacy wrapper"),
+    });
+  });
+
   it("creates the limited global config entries and an ownership manifest", async () => {
     const location = paths();
     const plan = await inspectOpenCodeRegistration("ask", location);

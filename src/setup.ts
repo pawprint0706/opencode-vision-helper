@@ -16,9 +16,12 @@ import { AppError } from "./errors.js";
 import { ALLOWED_PROVIDER_IDS, type AllowedProviderId } from "./model.js";
 import { doctor } from "./opencode.js";
 import {
+  createOpenCodeManualRegistrationPlan,
   inspectOpenCodeRegistration,
+  type OpenCodeManualRegistrationPlan,
   type OpenCodeRegistrationOptions,
   registerOpenCodePlugin,
+  verifyOpenCodeManualRegistration,
 } from "./registration.js";
 
 export type SetupChoice = {
@@ -40,6 +43,8 @@ export type SetupServices = {
   readConfigState: typeof readHelperConfigState;
   writeConfig: typeof writeHelperConfig;
   inspectRegistration: typeof inspectOpenCodeRegistration;
+  createManualRegistrationPlan: typeof createOpenCodeManualRegistrationPlan;
+  verifyManualRegistration: typeof verifyOpenCodeManualRegistration;
   registerPlugin: typeof registerOpenCodePlugin;
   now: () => Date;
 };
@@ -61,9 +66,18 @@ export type SetupResult =
       consentReused: boolean;
       permission: HelperPermission;
       model: string;
-      openCodeRegistration: "registered" | "already-registered" | "skipped";
+      openCodeRegistration: "registered" | "already-registered" | "manual" | "skipped";
       registrationChanged: boolean;
       openCodeConfigPath?: string;
+    }
+  | {
+      status: "manual-registration-required";
+      changed: boolean;
+      configPath: string;
+      consentReused: boolean;
+      permission: HelperPermission;
+      model: string;
+      openCodeConfigPaths: string[];
     }
   | {
       status: "canceled";
@@ -79,6 +93,8 @@ const DEFAULT_SETUP_SERVICES: SetupServices = {
   readConfigState: readHelperConfigState,
   writeConfig: writeHelperConfig,
   inspectRegistration: inspectOpenCodeRegistration,
+  createManualRegistrationPlan: createOpenCodeManualRegistrationPlan,
+  verifyManualRegistration: verifyOpenCodeManualRegistration,
   registerPlugin: registerOpenCodePlugin,
   now: () => new Date(),
 };
@@ -339,9 +355,42 @@ export async function runInteractiveSetup(
       "model",
     );
 
-    const registrationPlan = shouldRegisterOpenCode
-      ? await services.inspectRegistration(permission, registrationLocation)
-      : undefined;
+    let registrationPlan: Awaited<ReturnType<typeof inspectOpenCodeRegistration>> | undefined;
+    let manualRegistration: OpenCodeManualRegistrationPlan | undefined;
+    let automaticRegistrationError: string | undefined;
+    if (shouldRegisterOpenCode) {
+      try {
+        registrationPlan = await services.inspectRegistration(permission, registrationLocation);
+      } catch (error) {
+        if (!(error instanceof AppError) || error.code !== "CONFIGURATION") {
+          throw error;
+        }
+        manualRegistration = await services.createManualRegistrationPlan(
+          permission,
+          registrationLocation,
+        );
+        automaticRegistrationError = error.message;
+      }
+    }
+
+    const registrationSummary = registrationPlan
+      ? `  OpenCode global config: ${registrationPlan.configPath}\n` +
+        "  OpenCode merge:\n" +
+        `${JSON.stringify(registrationPlan.snippet, null, 2)}\n` +
+        `  Existing helper plugin: ${registrationPlan.pluginPresent ? "registered" : "not registered"}\n` +
+        `  Existing vision_analyze permission: ${
+          registrationPlan.currentPermission === undefined
+            ? "not set"
+            : JSON.stringify(registrationPlan.currentPermission)
+        }\n`
+      : manualRegistration
+        ? "  OpenCode registration: manual merge required\n" +
+          `  Automatic merge unavailable: ${automaticRegistrationError}\n` +
+          "  Review these OpenCode config target(s):\n" +
+          manualRegistration.configPaths.map((path) => `    - ${path}\n`).join("") +
+          "  Merge this snippet without replacing unrelated settings:\n" +
+          `${JSON.stringify(manualRegistration.snippet, null, 2)}\n`
+        : "  OpenCode registration: skipped (--config-only)\n";
 
     prompter.write(
       "\nSetup summary\n" +
@@ -349,17 +398,7 @@ export async function runInteractiveSetup(
         `  Permission: ${permission}\n` +
         `  Vision model: ${model}\n` +
         `  Helper config: ${state.path}\n` +
-        (registrationPlan
-          ? `  OpenCode global config: ${registrationPlan.configPath}\n` +
-            "  OpenCode merge:\n" +
-            `${JSON.stringify(registrationPlan.snippet, null, 2)}\n` +
-            `  Existing helper plugin: ${registrationPlan.pluginPresent ? "registered" : "not registered"}\n` +
-            `  Existing vision_analyze permission: ${
-              registrationPlan.currentPermission === undefined
-                ? "not set"
-                : JSON.stringify(registrationPlan.currentPermission)
-            }\n`
-          : "  OpenCode registration: skipped (--config-only)\n"),
+        registrationSummary,
     );
     if (
       registrationPlan?.permissionChange &&
@@ -373,7 +412,9 @@ export async function runInteractiveSetup(
     }
     const finalQuestion = registrationPlan
       ? "Save the helper config and register the OpenCode plugin?"
-      : "Save only the helper config?";
+      : manualRegistration
+        ? "Save the helper config and continue with the manual OpenCode merge?"
+        : "Save only the helper config?";
     if (!(await prompter.confirm(finalQuestion, false))) {
       prompter.write("Setup canceled. No configuration was changed.\n");
       return { status: "canceled", reason: "final-confirmation-declined" };
@@ -408,6 +449,66 @@ export async function runInteractiveSetup(
           { cause: error, stage: "opencode-registration" },
         );
       }
+    }
+    if (manualRegistration) {
+      prompter.write(
+        `${changed ? "Configuration saved" : "Configuration unchanged"}: ${state.path}\n` +
+          "Automatic OpenCode registration was not attempted. Merge the displayed snippet into exactly one intended config, and do not load the legacy wrapper beside the npm plugin.\n",
+      );
+      if (
+        !(await prompter.confirm(
+          "Have you completed and reviewed the manual OpenCode merge?",
+          false,
+        ))
+      ) {
+        prompter.write(
+          "Setup is incomplete until the manual OpenCode merge is finished. Rerun setup afterward to verify registration.\n",
+        );
+        return {
+          status: "manual-registration-required",
+          changed,
+          configPath: state.path,
+          consentReused,
+          permission,
+          model,
+          openCodeConfigPaths: manualRegistration.configPaths,
+        };
+      }
+      const manualVerification = await services.verifyManualRegistration(
+        manualRegistration,
+        registrationLocation,
+      );
+      if (!manualVerification.complete) {
+        prompter.write(
+          `Manual OpenCode registration could not be verified: ${manualVerification.reason ?? "the expected entries are missing"}\n` +
+            "Setup is incomplete. Correct the merge and rerun setup.\n",
+        );
+        return {
+          status: "manual-registration-required",
+          changed,
+          configPath: state.path,
+          consentReused,
+          permission,
+          model,
+          openCodeConfigPaths: manualRegistration.configPaths,
+        };
+      }
+      prompter.write(
+        "Manual OpenCode registration confirmed. Restart OpenCode, then run opencode-vision-helper doctor. Project or agent permissions can override this global setting.\n",
+      );
+      return {
+        status: "configured",
+        changed,
+        configPath: state.path,
+        consentReused,
+        permission,
+        model,
+        openCodeRegistration: "manual",
+        registrationChanged: false,
+        ...(manualRegistration.configPaths.length === 1
+          ? { openCodeConfigPath: manualRegistration.configPaths[0] }
+          : {}),
+      };
     }
     prompter.write(
       `${changed ? "Configuration saved" : "Configuration unchanged"}: ${state.path}\n` +

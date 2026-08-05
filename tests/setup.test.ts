@@ -86,6 +86,14 @@ function setupServices(overrides: Partial<SetupServices> = {}): SetupServices {
         permission: { vision_analyze: permission },
       },
     }),
+    createManualRegistrationPlan: async (permission) => ({
+      configPaths: [join(temporaryRoot, "opencode.json")],
+      snippet: {
+        plugin: ["@pawprint0706/opencode-vision-helper"],
+        permission: { vision_analyze: permission },
+      },
+    }),
+    verifyManualRegistration: async () => ({ complete: true }),
     registerPlugin: async (permission) => ({
       status: "registered",
       changed: true,
@@ -298,6 +306,109 @@ describe("interactive setup", () => {
       message: expect.stringContaining("Helper configuration was saved"),
     });
     await expect(readHelperConfig({ configPath })).resolves.toBeDefined();
+  });
+
+  it("falls back to a confirmed manual merge when automatic inspection is unsafe", async () => {
+    const configPath = join(temporaryRoot, "config.json");
+    const registerPlugin = vi.fn(setupServices().registerPlugin);
+    const prompter = new FakePrompter(
+      true,
+      [true, true, true],
+      ["ask", "opencode-go", "opencode-go/vision-a"],
+    );
+
+    const result = await runInteractiveSetup({
+      configLocation: { configPath },
+      prompter,
+      services: setupServices({
+        inspectRegistration: async () => {
+          throw new AppError("CONFIGURATION", "The config contains unsupported JSONC.");
+        },
+        registerPlugin,
+      }),
+    });
+
+    expect(result).toMatchObject({
+      status: "configured",
+      changed: true,
+      openCodeRegistration: "manual",
+      registrationChanged: false,
+      openCodeConfigPath: join(temporaryRoot, "opencode.json"),
+    });
+    expect(registerPlugin).not.toHaveBeenCalled();
+    await expect(readHelperConfig({ configPath })).resolves.toBeDefined();
+    const output = prompter.writes.join("");
+    expect(output).toContain("manual merge required");
+    expect(output).toContain("unsupported JSONC");
+    expect(output).toContain('"vision_analyze": "ask"');
+    expect(output).toContain("Manual OpenCode registration confirmed");
+  });
+
+  it("saves helper config but reports incomplete setup until manual merge is confirmed", async () => {
+    const configPath = join(temporaryRoot, "config.json");
+    const prompter = new FakePrompter(
+      true,
+      [true, true, false],
+      ["ask", "opencode", "opencode/vision-zen"],
+    );
+
+    const result = await runInteractiveSetup({
+      configLocation: { configPath },
+      prompter,
+      services: setupServices({
+        inspectRegistration: async () => {
+          throw new AppError("CONFIGURATION", "Both global configs exist.");
+        },
+        createManualRegistrationPlan: async (permission) => ({
+          configPaths: [
+            join(temporaryRoot, "opencode.json"),
+            join(temporaryRoot, "opencode.jsonc"),
+          ],
+          snippet: {
+            plugin: ["@pawprint0706/opencode-vision-helper"],
+            permission: { vision_analyze: permission },
+          },
+        }),
+      }),
+    });
+
+    expect(result).toMatchObject({
+      status: "manual-registration-required",
+      changed: true,
+      openCodeConfigPaths: [
+        join(temporaryRoot, "opencode.json"),
+        join(temporaryRoot, "opencode.jsonc"),
+      ],
+    });
+    await expect(readHelperConfig({ configPath })).resolves.toBeDefined();
+    expect(prompter.writes.join("")).toContain("Setup is incomplete");
+  });
+
+  it("does not report manual setup success when the confirmed merge cannot be verified", async () => {
+    const configPath = join(temporaryRoot, "config.json");
+    const prompter = new FakePrompter(
+      true,
+      [true, true, true],
+      ["ask", "opencode-go", "opencode-go/vision-a"],
+    );
+
+    const result = await runInteractiveSetup({
+      configLocation: { configPath },
+      prompter,
+      services: setupServices({
+        inspectRegistration: async () => {
+          throw new AppError("CONFIGURATION", "Automatic merge is unsafe.");
+        },
+        verifyManualRegistration: async () => ({
+          complete: false,
+          reason: "The exact npm plugin entry is missing.",
+        }),
+      }),
+    });
+
+    expect(result).toMatchObject({ status: "manual-registration-required", changed: true });
+    expect(prompter.writes.join("")).toContain("could not be verified");
+    expect(prompter.writes.join("")).toContain("exact npm plugin entry is missing");
   });
 
   it("supports config-only setup for an ownership-checked legacy wrapper", async () => {

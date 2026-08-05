@@ -51,6 +51,10 @@ connected image-capable model, saves the helper config, and merges only the npm
 plugin entry and `permission.vision_analyze` into the global OpenCode config. Restart
 OpenCode after setup. `ask` is recommended; `allow` permits future native tool calls
 without a confirmation UI when no more specific OpenCode setting overrides it.
+If the existing config cannot be edited safely, setup saves only the helper config
+after approval and prints the exact target paths and mergeable snippet. It reports
+setup as incomplete until the user confirms the manual merge and a read-only check
+finds the exact package and permission in one config with no legacy-wrapper duplicate.
 
 ## CLI
 

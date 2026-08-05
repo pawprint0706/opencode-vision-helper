@@ -284,6 +284,21 @@ describe("CLI process contract", () => {
     expect(runSetup).toHaveBeenCalledWith({ registerOpenCode: false });
   });
 
+  it("returns failure while a saved setup still requires manual registration", async () => {
+    const runSetup = vi.fn(async () => ({
+      status: "manual-registration-required" as const,
+      changed: true,
+      configPath: "config.json",
+      consentReused: false,
+      permission: "ask" as const,
+      model: "opencode-go/vision",
+      openCodeConfigPaths: ["opencode.json"],
+    }));
+
+    await expect(main(["setup"], services({ runSetup }))).resolves.toBe(1);
+    expect(runSetup).toHaveBeenCalledOnce();
+  });
+
   it("removes the owned registration and reports preserved helper settings", async () => {
     const unregisterPlugin = vi.fn(services().unregisterPlugin);
     const result = await captureMain(["unregister", "--json"], services({ unregisterPlugin }));
