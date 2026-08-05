@@ -190,6 +190,32 @@ adapter type checks, 102 Vitest tests, build, and packed-artifact consumer and
 adapter-lifecycle checks pass with that baseline. This is a dependency compatibility
 check and does not repeat the already completed live model calls.
 
+## npm 0.1.0 publication
+
+The initial public package was published manually on 2026-08-05 as
+`@pawprint0706/opencode-vision-helper@0.1.0` with public access after the maintainer
+confirmed the matching npm account and `auth-and-writes` 2FA. Annotated tag `v0.1.0`
+points to release commit `2b838591633fff77cfd50805fb7eacf4430fa12a`.
+
+The release commit and tag each passed Windows, macOS, and Linux CI on Node.js 20 and
+24: [release-commit run](https://github.com/pawprint0706/opencode-vision-helper/actions/runs/30975436035)
+and [tag run](https://github.com/pawprint0706/opencode-vision-helper/actions/runs/30975710211).
+The public registry reports:
+
+- version and `latest` dist-tag: `0.1.0`
+- engine: Node.js `>=20`
+- repository: `git+https://github.com/pawprint0706/opencode-vision-helper.git`
+- integrity: `sha512-iFS64fGA2m9WtnBS0YP29U8f4TDHBvYnG279i4mHwpY14eDeIQs1+YkOHJx6MuQM32mkIHdC4n8r6cWMK0TnQA==`
+- shasum: `b6470d36e9438d7db3d6276c95d7ad5172c0f5e4`
+- provenance: no registry attestation is present for this manually published initial
+  version; trusted publishing with provenance remains the preferred follow-up path
+
+A clean Windows consumer using Node.js 24.15.0 and npm 12.0.2 installed the exact
+registry version into an isolated global prefix with a separate empty HOME, npm user
+config, and cache. The generated `.cmd` shim executed `--help` successfully. This
+post-publication smoke test did not inspect OpenCode credentials, discover provider
+models, or perform a live image analysis.
+
 ## Deferred validation
 
 No required check remains for the `ask`-based local-only v1. An intentional
@@ -198,20 +224,20 @@ project, but the headless temporary-project path has already exercised `allow`, 
 `ask` remains the recommended default. This is not a release requirement.
 
 Live checks can transmit images, incur provider cost, inspect provider connection
-state through OpenCode, or change OpenCode project configuration. Current work is
-limited to the user's authorized synthetic fixtures, TUI-first validation, and local
-distribution testing. Credentials remain owned by OpenCode and must never be copied
-into this project or recorded in validation output.
+state through OpenCode, or change OpenCode project configuration. Current live
+evidence is limited to the user's authorized synthetic fixtures and the previously
+completed TUI/Desktop/headless validation. Credentials remain owned by OpenCode and
+must never be copied into this project or recorded in validation output.
 
 ## Distribution decision
 
-The GitHub source repository is public and the package now carries scoped public npm
-metadata for `@pawprint0706/opencode-vision-helper`. Interactive setup,
+The GitHub source repository and npm package
+`@pawprint0706/opencode-vision-helper@0.1.0` are public. Interactive setup,
 ownership-tracked global registration, release policy, packed-artifact installation,
 and the isolated cross-platform global CLI shim gate are complete. The maintainer
 confirmed the matching npm account, `auth-and-writes` 2FA, and the manual initial
-publish path on 2026-08-05. Published-artifact integrity and clean-install results are
-recorded after the registry write. The original
+publish path on 2026-08-05. The registry metadata, integrity, and clean-install result
+are recorded above. The original
 `orca-vision-helper` was marked deprecated in commit
 `ace115f` and archived on 2026-08-05 after its historical migration records and
 ownership-aware removal guidance were preserved. That repository retirement did not

@@ -68,8 +68,8 @@ configuration, model metadata, and model-specific wire protocols.
    including an isolated global npm install and platform CLI shim execution. The
    target source repository is public. The original `orca-vision-helper` was marked
    deprecated and archived after its migration records and removal guidance were
-   preserved. Initial public npm publication was separately approved for the 0.1.0
-   release process.
+   preserved. Initial public npm publication was separately approved and completed as
+   `@pawprint0706/opencode-vision-helper@0.1.0` on 2026-08-05.
 
 CI covers Windows, macOS, and Linux on the minimum Node.js 20 runtime and
 Node.js 24. Every matrix job installs from the lockfile, runs type checks, unit and

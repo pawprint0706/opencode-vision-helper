@@ -237,8 +237,8 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [x] npm 계정 `pawprint0706`이 존재하고 해당 scope에 publish할 권한이 있는지
   확인한다. 2026-08-05 `npm whoami`로 개인 scope와 일치하는 인증 계정을 확인했다.
 - [x] 패키지 이름 `@pawprint0706/opencode-vision-helper`의 사용 가능 여부 또는 현재
-  소유권을 확인한다. 2026-08-05 공개 registry의 인증 없는 package 조회는 404이며,
-  실제 scope publish 권한은 계정 인증 단계에서 별도로 확인해야 한다.
+  소유권을 확인한다. 2026-08-05 인증 계정으로 최초 public publish를 완료하고 공개
+  registry에서 `0.1.0`을 조회해 소유권을 확인했다.
 - [x] npm publish용 2FA를 활성화한다. `auth-and-writes` 모드를 확인했다.
 - [x] 최초 배포 방식을 수동 `npm publish --access public`로 선택하고 승인했다. 후속
   릴리스는 trusted publishing 전환을 우선 검토한다.
@@ -496,7 +496,7 @@ opencode-vision-helper analyze .\screen.png
   Quick start와 분리한다.
 - [x] README와 `docs/OPENCODE.md`의 private/unpublished 및 unscoped package 예시를
   공개 scoped package 기준으로 갱신한다.
-- [ ] `docs/VALIDATION.md`에 publish된 artifact의 version, integrity/provenance,
+- [x] `docs/VALIDATION.md`에 publish된 artifact의 version, integrity/provenance,
   clean-install 결과를 기록한다.
 
 ## 릴리스 TODO
@@ -512,13 +512,12 @@ npm run build
 - [x] `npm pack --dry-run`과 tarball contents를 검토해 source map, test fixture,
   개인 경로, 로그, 임시 파일, credential이 포함되지 않았는지 확인한다.
 - [x] tarball에서 CLI, setup, config, plugin export, install/uninstall을 검증한다.
-- [ ] 최초 publish 전에 version과 changelog를 확정하고 Git tag/commit이 일치하는지
-  확인한다.
-- [ ] `npm publish --access public` 또는 승인된 trusted publishing workflow로
-  배포한다.
-- [ ] registry의 새 tarball을 cache 없는 격리 환경에서 설치해 검증한다. 로컬 checkout
+- [x] 최초 publish 전에 version과 changelog를 확정하고 Git tag/commit이 일치하는지
+  확인한다. annotated `v0.1.0`은 release commit `2b83859`를 가리킨다.
+- [x] 승인된 수동 `npm publish --access public`로 `0.1.0`을 배포한다.
+- [x] registry의 새 tarball을 cache 없는 격리 환경에서 설치해 검증한다. 로컬 checkout
   tarball 검증만으로 release 완료 처리하지 않는다.
-- [ ] `npm view @pawprint0706/opencode-vision-helper`의 version, dist-tag, engines,
+- [x] `npm view @pawprint0706/opencode-vision-helper`의 version, dist-tag, engines,
   repository, integrity를 확인한다.
 - [ ] 실제 설치 명령과 README 명령을 그대로 복사해 end-to-end smoke test한다.
 - [ ] 문제가 생기면 잘못된 version을 덮어쓰기보다 새 patch version으로 수정하고,
