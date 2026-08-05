@@ -254,8 +254,9 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [x] 최소 Node.js 버전과 지원 OpenCode 기준을 확정한다. Node.js 요구사항은 20+,
   테스트한 SDK/plugin baseline은 OpenCode 1.18.13이며 업그레이드 후 doctor 검증을
   요구한다.
-- [ ] Windows, macOS, Linux에서 전역 npm bin과 OpenCode global config 경로를
-  확인한다.
+- [x] Windows, macOS, Linux에서 전역 npm bin과 OpenCode global config 경로를
+  확인한다. packed tarball을 공백/Unicode가 포함된 격리 prefix와 HOME에 설치해 CLI
+  shim 및 global config 경로를 실행하는 검증을 Node 20/24 CI matrix에 둔다.
 - [x] OpenCode Go/Zen 연결은 사용자가 OpenCode `/connect`로 수행해야 한다는 점을
   명시한다.
 - [x] 이미지 전송, 비용, 지원 포맷/크기, 세션 정리, 로그에 포함될 수 있는 정보,
@@ -443,7 +444,9 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   테스트를 유지한다.
 - [x] scoped package 이름과 plugin subpath를 packed artifact consumer에서 import하고
   OpenCode fake fixture로 로드한다.
-- [ ] 전역 npm 설치로 생성된 CLI shim을 Windows/macOS/Linux에서 실행한다.
+- [x] 전역 npm 설치로 생성된 CLI shim을 Windows/macOS/Linux에서 실행한다. 실제 packed
+  tarball을 `npm install --global --prefix`로 설치하고 생성된 platform별 shim의
+  `--help`를 실행한다.
 - [x] 저장된 기본 모델과 명시 override 우선순위를 CLI와 native tool에서 테스트한다.
 - [x] project/agent override 때문에 global permission과 실제 permission이 다른 경우의
   안내를 테스트한다.
@@ -454,8 +457,9 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 
 ### 명시 승인 후에만 수행할 live 테스트
 
-- [ ] 실제 npm에 publish하기 전 `npm pack` tarball을 깨끗한 사용자 환경과 격리된
-  HOME에서 전역 설치한다.
+- [x] 실제 npm에 publish하기 전 `npm pack` tarball을 깨끗한 사용자 환경과 격리된
+  HOME에서 전역 설치한다. release gate가 별도 npm user config와 격리 prefix를 사용해
+  이를 반복 검증한다.
 - [ ] 사용자가 명시적으로 승인한 synthetic image만 사용한다.
 - [ ] Go와 Zen 각각에서 setup 모델 discovery와 CLI 분석을 검증한다.
 - [ ] text-only caller가 `vision_analyze`를 호출하고 `ask` UI가 나타나는지 검증한다.

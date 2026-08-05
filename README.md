@@ -17,7 +17,8 @@ CLI 1.18.13 reproduced both behaviors: a vision-limited `opencode-go/deepseek-v4
 session delegated analysis to `opencode-go/gpt-5.6-luna`, and a forced
 `opencode-go/gpt-5.6-luna` call was refused with `CALLER_VISION_CAPABLE`. The package
 is not published yet; its scoped public-package metadata is prepared and
-packed-artifact installation is verified on every `npm run verify`. Interactive
+packed-artifact installation, including an isolated global CLI shim, is verified on
+Windows, macOS, and Linux on every CI run. Interactive
 setup, saved consent/model selection, and ownership-tracked global registration are
 implemented. Registry release work remains in progress.
 

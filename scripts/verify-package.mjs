@@ -77,6 +77,49 @@ try {
     { cwd: consumer },
   );
 
+  const isolatedNpmHome = join(temporaryRoot, "isolated npm home");
+  const isolatedNpmPrefix = join(temporaryRoot, "global npm prefix with space-한글");
+  const isolatedNpmConfig = join(isolatedNpmHome, ".npmrc");
+  await mkdir(isolatedNpmHome, { recursive: true });
+  await writeFile(isolatedNpmConfig, "");
+  const isolatedNpmEnvironment = {
+    ...process.env,
+    HOME: isolatedNpmHome,
+    USERPROFILE: isolatedNpmHome,
+    NPM_CONFIG_USERCONFIG: isolatedNpmConfig,
+  };
+  await runNpm(
+    [
+      "install",
+      "--global",
+      "--prefix",
+      isolatedNpmPrefix,
+      tarball,
+      "--ignore-scripts",
+      "--prefer-online",
+      "--no-audit",
+      "--no-fund",
+    ],
+    { cwd: temporaryRoot, env: isolatedNpmEnvironment },
+  );
+  const globalCliShim =
+    process.platform === "win32"
+      ? join(isolatedNpmPrefix, "opencode-vision-helper.cmd")
+      : join(isolatedNpmPrefix, "bin", "opencode-vision-helper");
+  await access(globalCliShim);
+  const globalCli =
+    process.platform === "win32"
+      ? await run(
+          process.env.ComSpec ?? "cmd.exe",
+          ["/d", "/s", "/c", "call", globalCliShim, "--help"],
+          { cwd: temporaryRoot, env: isolatedNpmEnvironment },
+        )
+      : await run(globalCliShim, ["--help"], {
+          cwd: temporaryRoot,
+          env: isolatedNpmEnvironment,
+        });
+  assert.match(globalCli.stdout, /opencode-vision-helper analyze <image>/);
+
   const installedPackage = join(
     consumer,
     "node_modules",
@@ -397,7 +440,7 @@ try {
   assert.equal(await readFile(globalAuthPath, "utf8"), globalBefore.auth);
   assert.equal(await readFile(globalPackagePath, "utf8"), globalBefore.packageJson);
 
-  process.stdout.write("Packed package import and adapter lifecycle verified.\n");
+  process.stdout.write("Packed package, global CLI shim, and adapter lifecycle verified.\n");
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
 }

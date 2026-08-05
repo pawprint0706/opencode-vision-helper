@@ -23,11 +23,12 @@ npm run verify
 npm pack --dry-run --json
 ```
 
-`verify:package` packs and installs the real artifact in a temporary consumer. It
-exercises setup, config inspection, direct unregister, CLI analysis against a loopback
-fake, library/plugin imports, and the legacy adapter lifecycle. The content check
-rejects test fixtures, internal sources/docs, logs, temporary or credential-shaped
-files, absolute source-map paths, and embedded source content.
+`verify:package` packs and installs the real artifact in a temporary consumer and an
+isolated global npm prefix. It executes the platform CLI shim and exercises setup,
+config inspection, direct unregister, CLI analysis against a loopback fake,
+library/plugin imports, and the legacy adapter lifecycle. The content check rejects
+test fixtures, internal sources/docs, logs, temporary or credential-shaped files,
+absolute source-map paths, and embedded source content.
 
 Before tagging, replace `Unreleased` in `CHANGELOG.md` with the UTC release date,
 commit that change, rerun the gate, and confirm the worktree is clean. Create and push
