@@ -7,6 +7,7 @@ export type ErrorCode =
   | "MODEL_NOT_VISION_CAPABLE"
   | "CALLER_MODEL_UNVERIFIED"
   | "CALLER_VISION_CAPABLE"
+  | "SETUP_CANCELED"
   | "UPLOAD_NOT_APPROVED"
   | "ANALYSIS_ABORTED"
   | "ANALYSIS_TIMEOUT"
@@ -31,6 +32,7 @@ const NEXT_ACTION: Record<ErrorCode, string> = {
   CALLER_MODEL_UNVERIFIED:
     "Use a connected OpenCode Go or Zen model whose metadata explicitly disables image input.",
   CALLER_VISION_CAPABLE: "Analyze the image directly with the calling model.",
+  SETUP_CANCELED: "Run opencode-vision-helper setup again when you are ready.",
   UPLOAD_NOT_APPROVED:
     "Review the image, then retry with --allow-upload in the CLI or approve the OpenCode permission.",
   ANALYSIS_ABORTED: "Retry only if image analysis is still needed.",

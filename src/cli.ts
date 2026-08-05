@@ -15,6 +15,7 @@ import { prepareImage } from "./imaging.js";
 import { parseModelRef } from "./model.js";
 import { type AnalysisResult, analyzeWithOpenCode, doctor } from "./opencode.js";
 import { DEFAULT_PROMPT, formatReport } from "./report.js";
+import { runInteractiveSetup } from "./setup.js";
 
 type ParsedAnalyze = {
   image: string;
@@ -30,12 +31,14 @@ export type CliServices = {
   prepareImage: typeof prepareImage;
   analyzeWithOpenCode: typeof analyzeWithOpenCode;
   doctor: typeof doctor;
+  runSetup: typeof runInteractiveSetup;
 };
 
 const DEFAULT_SERVICES: CliServices = {
   prepareImage,
   analyzeWithOpenCode,
   doctor,
+  runSetup: runInteractiveSetup,
 };
 
 const HELP = `opencode-vision-helper
@@ -45,6 +48,7 @@ Usage:
                                       [--json] [--allow-upload] [--keep-session]
                                       [--timeout <seconds>]
   opencode-vision-helper doctor [--json]
+  opencode-vision-helper setup
 
 Only opencode-go/<model> and opencode/<model> are supported.
 Live analysis requires --allow-upload because the selected image is sent to OpenCode Go/Zen.
@@ -187,6 +191,14 @@ async function runDoctor(args: string[], services: CliServices): Promise<number>
   }
 }
 
+async function runSetup(args: string[], services: CliServices): Promise<number> {
+  if (args.length > 0) {
+    throw new AppError("BAD_REQUEST", `Unknown option: ${args[0]}`);
+  }
+  const result = await services.runSetup();
+  return result.status === "configured" ? 0 : 1;
+}
+
 export async function main(
   args = process.argv.slice(2),
   services: CliServices = DEFAULT_SERVICES,
@@ -201,6 +213,9 @@ export async function main(
   }
   if (command === "doctor") {
     return runDoctor(args.slice(1), services);
+  }
+  if (command === "setup") {
+    return runSetup(args.slice(1), services);
   }
   throw new AppError("BAD_REQUEST", `Unknown command: ${command}`);
 }

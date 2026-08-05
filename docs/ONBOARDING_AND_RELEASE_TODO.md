@@ -43,13 +43,13 @@ OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. �
 | 항목 | 현재 상태 | 필요한 변화 |
 | --- | --- | --- |
 | 전역 CLI | `bin`과 packed-artifact 테스트가 있음 | scoped 공개 패키지로 변경하고 실제 registry 설치 검증 |
-| npm 배포 | 이름이 `opencode-vision-helper`, `private: true` | `@pawprint0706/opencode-vision-helper` 및 공개 배포 메타데이터 적용 |
-| 최초 설정 | `analyze`, `doctor`만 있음 | 대화형 `setup` 및 설정 조회/재설정 명령 추가 |
+| npm 배포 | scoped 이름과 공개 배포 메타데이터 적용 완료 | 실제 registry publish 및 clean install 검증 |
+| 최초 설정 | 대화형 `setup`과 전역 등록까지 구현 | 설정 조회/재설정 명령 추가 |
 | 업로드 동의 | CLI 호출마다 `--allow-upload` 필요 | 1회 동의의 의미와 저장/철회 정책 구현 |
-| provider/모델 선택 | `doctor`가 연결된 이미지 모델 목록만 출력 | provider와 모델 선택 UI 및 기본 모델 저장 |
+| provider/모델 선택 | setup이 연결된 provider와 image-capable 모델을 선택·저장 | 저장 모델의 CLI/plugin 사용과 drift 진단 |
 | 기본 모델 | CLI 인자 또는 `OPENCODE_VISION_MODEL` | helper 설정 파일을 기본값 소스로 추가 |
-| OpenCode 등록 | wrapper와 manifest를 만들고 병합 snippet/npm 명령을 출력 | 공개 npm 플러그인 직접 등록 또는 기존 wrapper 흐름의 완전한 온보딩 통합 |
-| 권한 설정 | `vision_analyze: ask` snippet만 출력 | `ask`/`allow` 선택을 전역 설정에 안전하게 반영하거나 수동 병합 절차 제공 |
+| OpenCode 등록 | setup이 공개 npm 플러그인을 제한적으로 병합하고 ownership manifest를 기록 | 수동 fallback과 ownership 기반 제거 완성 |
+| 권한 설정 | setup이 `ask`/`allow`를 선택받아 정확한 한 항목만 병합 | 충돌 시 수동 fallback과 제거 시 원래 값 복원 완성 |
 | 제거/업그레이드 | wrapper 소유권은 검증하지만 사용자 병합 설정은 제거하지 않음 | 새로 소유하는 설정 조각까지 정확한 소유권/충돌 정책 정의 |
 
 ## 먼저 결정할 제품 정책
@@ -85,6 +85,8 @@ OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. �
   호환용으로 유지하되 일반 사용자 README에서는 npm 직접 등록만 안내한다. npm 직접
   등록의 세 운영체제 검증이 끝난 뒤 별도 버전에서 deprecate 여부를 다시 판단한다.
 - [ ] 직접 등록과 wrapper가 동시에 로드되어 도구가 중복 등록되지 않도록 감지한다.
+  setup은 같은 global config directory의 legacy wrapper를 차단한다. 임의 프로젝트의
+  local wrapper까지 전역 setup이 탐색하지 않으므로 runtime 또는 doctor 진단은 남아 있다.
 
 참고: [OpenCode Plugins](https://opencode.ai/docs/plugins/)
 
@@ -105,18 +107,21 @@ OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. �
 
 제한적 병합을 허용하더라도 다음 조건은 필수다.
 
-- [ ] `opencode.json`과 `opencode.jsonc`를 모두 인식한다.
-- [ ] JSONC 주석과 trailing comma를 보존할 수 없는 구현은 사용하지 않는다.
-- [ ] symlink, 비정규 파일, 읽기 전용 파일, parse 오류, 동시 변경을 감지하면 쓰지
+- [x] `opencode.json`과 `opencode.jsonc`를 모두 인식한다. 둘 다 있으면 어느 파일도
+  임의 선택하지 않고 수동 정리를 요구한다.
+- [x] `jsonc-parser`의 최소 편집을 사용해 JSONC 주석, trailing comma, BOM, 기존
+  줄바꿈과 들여쓰기를 보존한다.
+- [x] symlink, 비정규 파일, 읽기 전용 파일, parse 오류, 동시 변경을 감지하면 쓰지
   않는다.
-- [ ] 기존 `plugin` 항목과 `permission.vision_analyze` 값을 먼저 보여 주고 충돌 시
+- [x] 기존 `plugin` 항목과 `permission.vision_analyze` 값을 먼저 보여 주고 충돌 시
   명시적으로 확인받는다.
-- [ ] 전체 config를 새 JSON으로 serialize해서 덮어쓰지 않는다.
-- [ ] 임시 파일과 atomic rename을 사용하고, 쓰기 직전 원본 hash를 다시 확인한다.
-- [ ] manifest에는 도구가 추가한 정확한 항목/값만 기록하며 다른 설정을 소유했다고
+- [x] 전체 config를 새 JSON으로 serialize해서 덮어쓰지 않는다.
+- [x] 임시 파일과 atomic rename을 사용하고, 쓰기 직전 원본 hash를 다시 확인한다.
+- [x] manifest에는 도구가 추가하거나 명시적으로 바꾼 정확한 항목/값과 원래 권한만
+  기록하며 다른 설정을 소유했다고
   간주하지 않는다.
 - [ ] uninstall은 현재 값이 manifest와 정확히 일치할 때만 해당 항목을 제거한다.
-- [ ] 조직 관리 설정, 프로젝트 설정, agent 설정이 전역값을 override할 수 있음을
+- [x] 조직 관리 설정, 프로젝트 설정, agent 설정이 전역값을 override할 수 있음을
   결과 화면에 알린다.
 
 OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병합한다.
@@ -329,14 +334,14 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 
 ### P1. 대화형 `setup` 명령
 
-- [ ] `opencode-vision-helper setup`을 CLI parser와 help에 추가한다.
-- [ ] no-argument 실행을 help로 유지할지 setup으로 연결할지 결정한다. 예측 가능성을
-  위해 문서에는 명시적인 `setup` 명령을 권장한다.
-- [ ] 입력/출력/TTY를 주입 가능한 서비스로 분리해 prompt 테스트가 실제 터미널에
+- [x] `opencode-vision-helper setup`을 CLI parser와 help에 추가한다.
+- [x] no-argument 실행은 기존처럼 help를 표시하고, 최초 설정은 명시적인 `setup`
+  명령으로만 시작하도록 결정한다.
+- [x] 입력/출력/TTY를 주입 가능한 서비스로 분리해 prompt 테스트가 실제 터미널에
   의존하지 않게 한다.
-- [ ] 비대화형 터미널에서는 필요한 선택을 명확한 오류로 반환한다. 추후 자동화용
+- [x] 비대화형 터미널에서는 필요한 선택을 명확한 오류로 반환한다. 추후 자동화용
   flags를 제공하더라도 클라우드 동의는 별도 명시 flag 없이는 성립하지 않게 한다.
-- [ ] 순서를 다음과 같이 고정한다.
+- [x] 순서를 다음과 같이 고정한다.
 
   1. OpenCode 실행 가능 여부와 버전 확인
   2. 클라우드 전송 안내 및 동의
@@ -348,13 +353,18 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   8. OpenCode 전역 등록 또는 안전한 수동 병합 안내
   9. 재시작과 검증 명령 출력
 
-- [ ] 연결된 Go/Zen provider가 없으면 `/connect` 안내 후 아무 설정도 설치하지 않고
+- [x] 위 1~9를 연결했다. setup은 helper 설정 저장 후 제한적 전역 병합을 수행하고,
+  등록 실패 시 helper 설정이 남았음을 오류 stage와 함께 명시한다.
+- [x] 연결된 Go/Zen provider가 없으면 `/connect` 안내 후 아무 설정도 설치하지 않고
   종료한다. 자격 증명 파일을 직접 찾거나 읽지 않는다.
-- [ ] 이미지 모델이 없으면 provider 상태와 해결 방법만 보여 주고 종료한다.
-- [ ] provider/모델 목록은 정렬하고 사람이 읽을 label과 실제 ID를 함께 보여 준다.
+- [x] 이미지 모델이 없으면 provider 상태와 해결 방법만 보여 주고 종료한다.
+- [x] provider/모델 목록은 정렬하고 사람이 읽을 label과 실제 ID를 함께 보여 준다.
 - [ ] 설정 중 `Ctrl+C`, EOF, 거절, OpenCode timeout을 안정적인 오류와 exit code로
   처리한다.
-- [ ] 재실행 시 현재 설정을 보여 주고 변경할 항목만 선택하게 한다.
+- [x] 거절은 쓰기 없이 종료하고, `Ctrl+C`와 EOF는 `SETUP_CANCELED` 오류로 변환한다.
+  OpenCode timeout의 실제 터미널 회귀 검증은 남아 있다.
+- [x] 재실행 시 기존의 유효한 동의를 유지하고 현재 permission/provider/model을
+  기본 선택으로 표시하며, 결과가 같으면 설정 파일을 다시 쓰지 않는다.
 - [ ] `setup --json`을 제공한다면 prompt를 섞지 말고 기계 판독 가능한 결과만
   stdout에 출력한다.
 
@@ -388,23 +398,28 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 
 ### P1. 전역 설치 및 제거 lifecycle
 
-- [ ] 선택한 등록 방식에 맞춰 `setup`에서 전역 설치 함수를 호출한다.
-- [ ] `OPENCODE_CONFIG_DIR` 또는 `OPENCODE_CONFIG`를 따를지, 표준 global config만
-  대상으로 할지 명시한다. 기본값은 공식 global config
-  `~/.config/opencode/opencode.json`이어야 한다.
-- [ ] 실제 쓰기 전에 대상 경로, 추가할 plugin entry, 권한값을 요약해 보여 준다.
-- [ ] 기존 설치가 정확히 같은 버전/설정이면 idempotent 성공을 반환한다.
-- [ ] 다른 source, 수정된 wrapper, 다른 permission, 중복 entry는 자동 교체하지 않고
-  충돌을 보고한다.
-- [ ] 설정 저장 성공 후 OpenCode 등록이 실패하면 어떤 상태가 남았는지 정확히 알리고
-  helper가 소유한 새 파일만 rollback한다.
+- [x] 선택한 등록 방식에 맞춰 `setup`에서 전역 설치 함수를 호출한다.
+- [x] 기본 setup은 `OPENCODE_CONFIG_DIR` 또는 `OPENCODE_CONFIG`를 암묵적으로 따르지
+  않고 공식 global config
+  `~/.config/opencode/opencode.json` 또는 기존 `opencode.jsonc`만 대상으로 한다.
+  테스트와 library 호출에서는 명시적 config path를 주입할 수 있다.
+- [x] 실제 쓰기 전에 대상 경로, 추가할 plugin entry, 권한값을 요약해 보여 준다.
+- [x] 기존 설치가 정확히 같은 설정이면 idempotent 성공을 반환한다.
+- [x] legacy global wrapper, 다른 permission, 중복 entry는 자동 교체하지 않고
+  충돌을 보고하거나 명시 확인을 요구한다. 프로젝트별 legacy wrapper 감지와 수동
+  fallback UX는 남아 있다.
+- [x] 설정 저장 성공 후 OpenCode 등록이 실패하면 helper 설정이 남았음을 정확히
+  알리고, config/manifest transaction에서 새로 바꾼 OpenCode config는 rollback한다.
+- [ ] `OPENCODE_CONFIG_DIR` 또는 `OPENCODE_CONFIG`를 따르는 별도 opt-in이 필요한지
+  공개 피드백 후 재검토한다. 현재 기본값은 공식 global config
+  `~/.config/opencode/opencode.json`이다.
 - [ ] `uninstall` 또는 `setup --uninstall`은 exact ownership을 확인해 helper가 만든
   plugin entry/wrapper/manifest만 제거한다.
 - [ ] uninstall 기본 동작은 helper 설정과 동의 기록을 보존하고, `--purge-config` 같은
   명시 옵션에서만 exact path 확인 후 제거하도록 결정한다.
-- [ ] OpenCode auth, 다른 plugin, agent, command, tool, project config는 설치/제거
-  대상에서 제외한다.
-- [ ] 완료 후 OpenCode 재시작 필요성을 출력한다.
+- [x] 현재 등록 구현에서 OpenCode auth, 다른 plugin, agent, command, tool, project
+  config는 설치 대상에서 제외한다. 제거 구현에서도 같은 경계를 유지해야 한다.
+- [x] 완료 후 OpenCode 재시작 필요성과 `doctor` 검증 명령을 출력한다.
 
 ## 테스트 TODO
 
@@ -415,7 +430,7 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [ ] setup이 실제 이미지 분석 endpoint를 호출하지 않는다는 회귀 테스트를 둔다.
 - [ ] helper config의 schema, 권한, atomic write, symlink, corruption, migration,
   concurrent change 테스트를 추가한다.
-- [ ] JSON/JSONC 병합을 허용한다면 주석, trailing comma, 기존 배열/권한, Unicode,
+- [x] JSON/JSONC 병합의 주석, trailing comma, 기존 배열/권한, Unicode,
   BOM, CRLF/LF, 충돌, 동시 변경 보존 테스트를 추가한다.
 - [ ] installer가 다른 OpenCode 설정과 auth sentinel을 byte-for-byte 보존하는 현재
   테스트를 유지한다.

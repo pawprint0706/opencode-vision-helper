@@ -94,7 +94,9 @@ try {
       "--input-type=module",
       "--eval",
       "const core = await import('@pawprint0706/opencode-vision-helper'); " +
-        "if (typeof core.parseHelperConfig !== 'function') process.exit(1);",
+        "if (typeof core.parseHelperConfig !== 'function' || " +
+        "typeof core.runInteractiveSetup !== 'function' || " +
+        "typeof core.registerOpenCodePlugin !== 'function') process.exit(1);",
     ],
     { cwd: consumer },
   );

@@ -82,6 +82,17 @@ function services(overrides: Partial<CliServices> = {}): CliServices {
       image_models: ["opencode-go/vision"],
       ok: true,
     }),
+    runSetup: async () => ({
+      status: "configured",
+      changed: true,
+      configPath: "config.json",
+      consentReused: false,
+      permission: "ask",
+      model: "opencode-go/vision",
+      openCodeRegistration: "registered",
+      registrationChanged: true,
+      openCodeConfigPath: "opencode.json",
+    }),
     ...overrides,
   };
 }
@@ -154,6 +165,8 @@ describe("CLI process contract", () => {
       code: "CONFIGURATION",
     },
     { args: ["doctor", "--unknown"], code: "BAD_REQUEST" },
+    { args: ["setup"], code: "BAD_REQUEST" },
+    { args: ["setup", "--unknown"], code: "BAD_REQUEST" },
   ])("prints $code as JSON on stderr and exits with failure", async ({ args, code }) => {
     const result = await runCli(args);
 
@@ -166,6 +179,23 @@ describe("CLI process contract", () => {
       message: expect.any(String),
       next_action: expect.any(String),
     });
+  });
+
+  it("dispatches the interactive setup command", async () => {
+    const runSetup = vi.fn(async () => ({
+      status: "configured" as const,
+      changed: false,
+      configPath: "config.json",
+      consentReused: true,
+      permission: "ask" as const,
+      model: "opencode-go/vision",
+      openCodeRegistration: "already-registered" as const,
+      registrationChanged: false,
+      openCodeConfigPath: "opencode.json",
+    }));
+
+    await expect(main(["setup"], services({ runSetup }))).resolves.toBe(0);
+    expect(runSetup).toHaveBeenCalledOnce();
   });
 
   it("prints a structured human result and cleanup warning on separate streams", async () => {

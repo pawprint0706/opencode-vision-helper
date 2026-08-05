@@ -137,7 +137,9 @@ export function parseHelperConfig(content: string): HelperConfig {
   };
 }
 
-export function hasValidCloudUploadConsent(config: HelperConfig): boolean {
+export function hasValidCloudUploadConsent(
+  config: HelperConfig,
+): config is HelperConfig & { consent: Extract<CloudUploadConsent, { cloudUpload: true }> } {
   return (
     config.consent.cloudUpload &&
     config.consent.noticeVersion === CLOUD_UPLOAD_NOTICE_VERSION &&
