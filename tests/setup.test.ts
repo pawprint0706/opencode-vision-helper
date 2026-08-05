@@ -1,8 +1,20 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { PassThrough } from "node:stream";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const opencodeMocks = vi.hoisted(() => ({
+  analyzeWithOpenCode: vi.fn(() => {
+    throw new Error("Setup must not start image analysis.");
+  }),
+}));
+
+vi.mock("../src/opencode.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/opencode.js")>()),
+  analyzeWithOpenCode: opencodeMocks.analyzeWithOpenCode,
+}));
 
 import {
   CLOUD_UPLOAD_NOTICE_VERSION,
@@ -18,6 +30,7 @@ import {
   type SetupChoice,
   type SetupPrompter,
   type SetupServices,
+  TerminalSetupPrompter,
 } from "../src/setup.js";
 
 let temporaryRoot: string;
@@ -120,6 +133,7 @@ function acceptedConfig(): HelperConfig {
 
 beforeEach(async () => {
   temporaryRoot = await mkdtemp(join(tmpdir(), "opencode-vision-setup-test-"));
+  opencodeMocks.analyzeWithOpenCode.mockClear();
 });
 
 afterEach(async () => {
@@ -167,7 +181,38 @@ describe("interactive setup", () => {
     expect(prompter.writes.join("")).toContain("Setup itself sends no image");
     expect(prompter.writes.join("")).toContain("OpenCode plugin registered");
     expect(prompter.writes.join("")).toContain("Restart OpenCode");
+    expect(opencodeMocks.analyzeWithOpenCode).not.toHaveBeenCalled();
     expect(prompter.closed).toBe(true);
+  });
+
+  it("handles a single connected provider and model without inventing another choice", async () => {
+    const configPath = join(temporaryRoot, "config.json");
+    const prompter = new FakePrompter(
+      true,
+      [true, true],
+      ["ask", "opencode", "opencode/only-vision"],
+    );
+
+    await expect(
+      runInteractiveSetup({
+        configLocation: { configPath },
+        prompter,
+        services: setupServices({
+          doctor: async () => ({
+            ...doctorResult(),
+            connected_providers: ["opencode"],
+            image_models: ["opencode/only-vision"],
+          }),
+        }),
+      }),
+    ).resolves.toMatchObject({
+      status: "configured",
+      model: "opencode/only-vision",
+    });
+    expect(prompter.selectCalls[1]?.choices.map((choice) => choice.value)).toEqual(["opencode"]);
+    expect(prompter.selectCalls[2]?.choices.map((choice) => choice.value)).toEqual([
+      "opencode/only-vision",
+    ]);
   });
 
   it("requires a second confirmation before saving allow", async () => {
@@ -463,6 +508,26 @@ describe("interactive setup", () => {
     expect(noModels.closed).toBe(true);
   });
 
+  it("propagates a stable OpenCode timeout without saving setup state", async () => {
+    const configPath = join(temporaryRoot, "config.json");
+    const prompter = new FakePrompter(true, [], []);
+
+    await expect(
+      runInteractiveSetup({
+        configLocation: { configPath },
+        prompter,
+        services: setupServices({
+          doctor: async () => {
+            throw new AppError("ANALYSIS_TIMEOUT", "OpenCode setup check timed out.");
+          },
+        }),
+      }),
+    ).rejects.toMatchObject({ code: "ANALYSIS_TIMEOUT", retryable: true });
+    await expect(readHelperConfig({ configPath })).resolves.toBeUndefined();
+    expect(prompter.closed).toBe(true);
+    expect(opencodeMocks.analyzeWithOpenCode).not.toHaveBeenCalled();
+  });
+
   it("rejects a non-interactive stream before contacting OpenCode", async () => {
     const doctor = vi.fn(async () => doctorResult());
     const prompter = new FakePrompter(false, [], []);
@@ -472,5 +537,37 @@ describe("interactive setup", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(doctor).not.toHaveBeenCalled();
     expect(prompter.closed).toBe(true);
+  });
+});
+
+describe("terminal setup prompts", () => {
+  it("turns input EOF into a stable setup cancellation", async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const prompter = new TerminalSetupPrompter(input, output);
+
+    const confirmation = prompter.confirm("Continue?", false);
+    input.end();
+
+    await expect(confirmation).rejects.toMatchObject({ code: "SETUP_CANCELED" });
+    prompter.close();
+  });
+
+  it("turns terminal Ctrl+C into a stable setup cancellation", async () => {
+    const input = new PassThrough() as PassThrough & {
+      isTTY: boolean;
+      setRawMode(value: boolean): PassThrough;
+    };
+    const output = new PassThrough() as PassThrough & { isTTY: boolean };
+    input.isTTY = true;
+    input.setRawMode = () => input;
+    output.isTTY = true;
+    const prompter = new TerminalSetupPrompter(input, output);
+
+    const confirmation = prompter.confirm("Continue?", false);
+    input.write("\u0003");
+
+    await expect(confirmation).rejects.toMatchObject({ code: "SETUP_CANCELED" });
+    prompter.close();
   });
 });

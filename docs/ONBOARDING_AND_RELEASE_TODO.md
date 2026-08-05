@@ -35,7 +35,7 @@ OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. �
   분석 세션에서는 모든 도구가 비활성화된다.
 - [ ] 설치, 재설정, 업그레이드, 제거가 사용자의 다른 OpenCode 설정과 플러그인을
   보존한다.
-- [ ] 기본 자동 테스트는 실제 provider 호출, 이미지 업로드, 자격 증명 접근을 하지
+- [x] 기본 자동 테스트는 실제 provider 호출, 이미지 업로드, 자격 증명 접근을 하지
   않는다.
 
 ## 현재 구현과 차이
@@ -362,7 +362,7 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   종료한다. 자격 증명 파일을 직접 찾거나 읽지 않는다.
 - [x] 이미지 모델이 없으면 provider 상태와 해결 방법만 보여 주고 종료한다.
 - [x] provider/모델 목록은 정렬하고 사람이 읽을 label과 실제 ID를 함께 보여 준다.
-- [ ] 설정 중 `Ctrl+C`, EOF, 거절, OpenCode timeout을 안정적인 오류와 exit code로
+- [x] 설정 중 `Ctrl+C`, EOF, 거절, OpenCode timeout을 안정적인 오류와 exit code로
   처리한다.
 - [x] 거절은 쓰기 없이 종료하고, `Ctrl+C`와 EOF는 `SETUP_CANCELED` 오류로 변환한다.
   OpenCode timeout의 실제 터미널 회귀 검증은 남아 있다.
@@ -430,24 +430,24 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 
 ### 자동 테스트
 
-- [ ] setup prompt의 동의/거절, `ask`/`allow`, Go/Zen, 모델 0/1/N개, 재실행,
+- [x] setup prompt의 동의/거절, `ask`/`allow`, Go/Zen, 모델 0/1/N개, 재실행,
   취소를 모두 fake I/O로 테스트한다.
-- [ ] setup이 실제 이미지 분석 endpoint를 호출하지 않는다는 회귀 테스트를 둔다.
-- [ ] helper config의 schema, 권한, atomic write, symlink, corruption, migration,
+- [x] setup이 실제 이미지 분석 endpoint를 호출하지 않는다는 회귀 테스트를 둔다.
+- [x] helper config의 schema, 권한, atomic write, symlink, corruption, migration,
   concurrent change 테스트를 추가한다.
 - [x] JSON/JSONC 병합의 주석, trailing comma, 기존 배열/권한, Unicode,
   BOM, CRLF/LF, 충돌, 동시 변경 보존 테스트를 추가한다.
-- [ ] installer가 다른 OpenCode 설정과 auth sentinel을 byte-for-byte 보존하는 현재
+- [x] installer가 다른 OpenCode 설정과 auth sentinel을 byte-for-byte 보존하는 현재
   테스트를 유지한다.
-- [ ] scoped package 이름과 plugin subpath를 packed artifact consumer에서 import하고
+- [x] scoped package 이름과 plugin subpath를 packed artifact consumer에서 import하고
   OpenCode fake fixture로 로드한다.
 - [ ] 전역 npm 설치로 생성된 CLI shim을 Windows/macOS/Linux에서 실행한다.
 - [x] 저장된 기본 모델과 명시 override 우선순위를 CLI와 native tool에서 테스트한다.
 - [ ] project/agent override 때문에 global permission과 실제 permission이 다른 경우의
   안내를 테스트한다.
-- [ ] uninstall/upgrade가 사용자가 수정한 entry를 삭제하거나 덮어쓰지 않는지
+- [x] uninstall/upgrade가 사용자가 수정한 entry를 삭제하거나 덮어쓰지 않는지
   테스트한다.
-- [ ] `npm run check`, `npm test`, `npm run build`, `npm run verify:package`를 모두
+- [x] `npm run check`, `npm test`, `npm run build`, `npm run verify:package`를 모두
   release gate로 유지한다.
 
 ### 명시 승인 후에만 수행할 live 테스트
@@ -495,7 +495,7 @@ opencode-vision-helper analyze .\screen.png
 
 ## 릴리스 TODO
 
-- [ ] 모든 변경 후 focused test부터 실행한 뒤 다음 전체 gate를 통과시킨다.
+- [x] 모든 변경 후 focused test부터 실행한 뒤 다음 전체 gate를 통과시킨다.
 
 ```text
 npm run check

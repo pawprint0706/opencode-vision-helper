@@ -124,8 +124,20 @@ export class TerminalSetupPrompter implements SetupPrompter {
   }
 
   async #question(prompt: string): Promise<string> {
+    let closeListener: (() => void) | undefined;
+    const inputClosed = new Promise<never>((_resolve, reject) => {
+      closeListener = () => {
+        reject(
+          new AppError(
+            "SETUP_CANCELED",
+            this.#interrupted ? "Setup was canceled." : "Setup input was closed before completion.",
+          ),
+        );
+      };
+      this.#readline.once("close", closeListener);
+    });
     try {
-      const answer = await this.#readline.question(prompt);
+      const answer = await Promise.race([this.#readline.question(prompt), inputClosed]);
       if (this.#interrupted) {
         throw new AppError("SETUP_CANCELED", "Setup was canceled.");
       }
@@ -137,6 +149,10 @@ export class TerminalSetupPrompter implements SetupPrompter {
       throw new AppError("SETUP_CANCELED", "Setup input was closed before completion.", {
         cause: error,
       });
+    } finally {
+      if (closeListener) {
+        this.#readline.removeListener("close", closeListener);
+      }
     }
   }
 
