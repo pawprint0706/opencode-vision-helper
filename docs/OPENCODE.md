@@ -26,6 +26,13 @@ only `@pawprint0706/opencode-vision-helper` and `permission.vision_analyze` into
 existing global `opencode.json` or `opencode.jsonc`. Existing comments and unrelated
 settings are preserved. Restart OpenCode afterward.
 
+Run `opencode-vision-helper doctor --json` to inspect the saved consent/model, the
+model's current provider connection and image capability, npm or legacy-wrapper
+registration, duplicate loading, and the global permission value. Doctor never reads
+credential contents or calls a billed model. Project and agent permissions may
+override the global value; current OpenCode APIs do not reliably expose whether a
+restart is pending, so that field is reported as `unknown`.
+
 ## Adapter installation
 
 Build this repository first:

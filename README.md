@@ -67,9 +67,12 @@ not write configuration. The default prompt uses a validated JSON report; `--pro
 returns the provider's free-form text.
 
 Successful results and help are written to stdout with exit code 0. Errors are
-written as a stable JSON object to stderr with exit code 1. `doctor` also returns
-exit code 1 when its checks complete but no connected Go/Zen image model is
-available.
+written as a stable JSON object to stderr with exit code 1. `doctor` reports OpenCode
+health, helper consent/config validity, saved-model connection and image capability,
+global plugin registration, and permission drift. It returns exit code 1 when any
+required readiness check fails. Project or agent configuration can still override
+the reported global permission, and restart necessity is reported as unknown when it
+cannot be observed safely.
 
 The complete interface is:
 

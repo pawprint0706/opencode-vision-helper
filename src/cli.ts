@@ -15,10 +15,11 @@ import {
   readHelperConfig,
   resolveConfiguredVisionModel,
 } from "./config.js";
+import { diagnoseInstallation } from "./diagnostics.js";
 import { AppError, asAppError } from "./errors.js";
 import { prepareImage } from "./imaging.js";
 import { parseModelRef } from "./model.js";
-import { type AnalysisResult, analyzeWithOpenCode, doctor } from "./opencode.js";
+import { type AnalysisResult, analyzeWithOpenCode } from "./opencode.js";
 import { DEFAULT_PROMPT, formatReport } from "./report.js";
 import { runInteractiveSetup } from "./setup.js";
 
@@ -35,7 +36,7 @@ type ParsedAnalyze = {
 export type CliServices = {
   prepareImage: typeof prepareImage;
   analyzeWithOpenCode: typeof analyzeWithOpenCode;
-  doctor: typeof doctor;
+  doctor: typeof diagnoseInstallation;
   runSetup: typeof runInteractiveSetup;
   readConfig: typeof readHelperConfig;
 };
@@ -43,7 +44,7 @@ export type CliServices = {
 const DEFAULT_SERVICES: CliServices = {
   prepareImage,
   analyzeWithOpenCode,
-  doctor,
+  doctor: diagnoseInstallation,
   runSetup: runInteractiveSetup,
   readConfig: readHelperConfig,
 };

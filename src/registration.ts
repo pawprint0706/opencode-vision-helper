@@ -61,6 +61,45 @@ export type OpenCodeRegistrationResult = {
   permission: HelperPermission;
 };
 
+export type OpenCodeRegistrationDiagnostic = {
+  configPath: string;
+  manifestPath: string;
+  npmPluginEntries: number;
+  legacyWrapperPresent: boolean;
+  legacyWrapperOwned: boolean;
+  pluginRegistered: boolean;
+  duplicateRegistration: boolean;
+  permission?: JsonValue;
+  permissionSource: "vision_analyze" | "wildcard" | "global" | "unset";
+  ownershipManifestPresent: boolean;
+};
+
+function legacyWrapperIsOwned(
+  wrapper: string | undefined,
+  manifestContent: string | undefined,
+): boolean {
+  if (wrapper === undefined || manifestContent === undefined) {
+    return false;
+  }
+  try {
+    const manifest: unknown = JSON.parse(manifestContent);
+    if (!isRecord(manifest) || !Array.isArray(manifest.files) || manifest.files.length !== 1) {
+      return false;
+    }
+    const file = manifest.files[0];
+    return (
+      manifest.schema === 1 &&
+      manifest.owner === REGISTRATION_OWNER &&
+      isRecord(file) &&
+      file.path === "plugins/vision-helper.ts" &&
+      typeof file.sha256 === "string" &&
+      file.sha256 === sha256(wrapper)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function registrationError(message: string, cause?: unknown): AppError {
   return new AppError("CONFIGURATION", message, cause === undefined ? undefined : { cause });
 }
@@ -336,6 +375,75 @@ export async function inspectOpenCodeRegistration(
       plugin: [OPENCODE_PLUGIN_PACKAGE],
       permission: { vision_analyze: permission },
     },
+  };
+}
+
+export async function diagnoseOpenCodeRegistration(
+  options: OpenCodeRegistrationOptions = {},
+): Promise<OpenCodeRegistrationDiagnostic> {
+  const configPath = await resolveConfigPath(options);
+  const manifestPath = resolveManifestPath(options);
+  const wrapperPath = resolve(dirname(configPath), "plugins", "vision-helper.ts");
+  const legacyManifestPath = resolve(dirname(configPath), ".opencode-vision-helper-install.json");
+  const [content, manifestContent, wrapper, legacyManifestContent] = await Promise.all([
+    readRegularFile(configPath, "OpenCode config"),
+    readRegularFile(manifestPath, "registration manifest"),
+    readRegularFile(wrapperPath, "legacy vision-helper wrapper"),
+    readRegularFile(legacyManifestPath, "legacy wrapper manifest"),
+  ]);
+  await assertExistingConfigDirectoryIsRegular(configPath);
+  const config = parseConfig(content, configPath);
+  const plugin = config.plugin;
+  if (
+    plugin !== undefined &&
+    (!Array.isArray(plugin) || !plugin.every((item) => typeof item === "string"))
+  ) {
+    throw registrationError(
+      `The existing OpenCode plugin setting is not a string array: ${configPath}`,
+    );
+  }
+  const npmPluginEntries = Array.isArray(plugin)
+    ? plugin.filter((item) => item === OPENCODE_PLUGIN_PACKAGE).length
+    : 0;
+  const legacyWrapperPresent = wrapper !== undefined;
+  const legacyWrapperOwned = legacyWrapperIsOwned(wrapper, legacyManifestContent);
+
+  const permissionRoot = config.permission;
+  let permission: JsonValue | undefined;
+  let permissionSource: OpenCodeRegistrationDiagnostic["permissionSource"] = "unset";
+  if (isRecord(permissionRoot)) {
+    const specific = permissionRoot.vision_analyze;
+    const wildcard = permissionRoot["*"];
+    if (specific !== undefined && isJsonValue(specific)) {
+      permission = specific;
+      permissionSource = "vision_analyze";
+    } else if (wildcard !== undefined && isJsonValue(wildcard)) {
+      permission = wildcard;
+      permissionSource = "wildcard";
+    }
+  } else if (permissionRoot !== undefined && isJsonValue(permissionRoot)) {
+    permission = permissionRoot;
+    permissionSource = "global";
+  }
+
+  if (manifestContent !== undefined) {
+    verifyOwnedState(parseManifest(manifestContent, manifestPath), config, configPath);
+  }
+  const registrationSources = (npmPluginEntries > 0 ? 1 : 0) + (legacyWrapperPresent ? 1 : 0);
+  return {
+    configPath,
+    manifestPath,
+    npmPluginEntries,
+    legacyWrapperPresent,
+    legacyWrapperOwned,
+    pluginRegistered:
+      registrationSources === 1 &&
+      npmPluginEntries <= 1 &&
+      (npmPluginEntries === 1 || legacyWrapperOwned),
+    duplicateRegistration: npmPluginEntries > 1 || registrationSources > 1,
+    ...(permission !== undefined ? { permission } : {}),
+    permissionSource,
+    ownershipManifestPresent: manifestContent !== undefined,
   };
 }
 

@@ -374,13 +374,13 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [x] `analyze`가 명시 model/env가 없을 때 저장된 model을 읽는다.
 - [x] 저장된 동의가 없거나 철회됐을 때 분석을 `CONSENT_REQUIRED`로 fail closed한다.
 - [x] 기존 `--allow-upload`는 config를 쓰지 않는 현재 CLI 실행 한 번의 동의로 유지한다.
-- [ ] `doctor`에 다음 항목을 추가하되 자격 증명 내용은 노출하지 않는다.
+- [x] `doctor`에 다음 항목을 추가하되 자격 증명 내용은 노출하지 않는다.
 
   - helper config 존재/유효 여부
   - 저장된 provider/model의 현재 연결 및 image capability
   - OpenCode global plugin 등록 여부
   - 현재 전역 permission 값과 override 가능성
-  - 재시작 필요 여부를 판단할 수 있다면 그 상태
+  - 재시작 필요 여부는 현재 안전하게 판정할 API가 없어 `unknown`으로 명시
 
 - [ ] `config show`, `config reset` 또는 이에 준하는 조회/철회 UX를 추가한다.
 - [x] 설정 및 동의 오류의 remediation 문구를 `setup` 기준으로 갱신한다.

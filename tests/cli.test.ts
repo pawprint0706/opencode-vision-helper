@@ -105,6 +105,29 @@ function services(overrides: Partial<CliServices> = {}): CliServices {
       opencode_version: "1.18.12",
       connected_providers: ["opencode-go"],
       image_models: ["opencode-go/vision"],
+      helper_config: {
+        status: "valid",
+        path: "config.json",
+        consent_valid: true,
+        model: "opencode-go/vision",
+        provider: "opencode-go",
+        provider_connected: true,
+        image_capable: true,
+      },
+      opencode_registration: {
+        status: "valid",
+        config_path: "opencode.json",
+        plugin_registered: true,
+        npm_plugin_entries: 1,
+        legacy_wrapper_present: false,
+        duplicate_registration: false,
+        permission: "ask",
+        permission_source: "vision_analyze",
+        permission_matches_helper: true,
+        ownership_manifest_present: true,
+        project_or_agent_override_possible: true,
+        restart_required: "unknown",
+      },
       ok: true,
     }),
     runSetup: async () => ({
@@ -418,6 +441,24 @@ describe("CLI process contract", () => {
             opencode_version: "1.18.12",
             connected_providers: [],
             image_models: [],
+            helper_config: {
+              status: "missing",
+              path: "config.json",
+              consent_valid: false,
+            },
+            opencode_registration: {
+              status: "valid",
+              config_path: "opencode.json",
+              plugin_registered: false,
+              npm_plugin_entries: 0,
+              legacy_wrapper_present: false,
+              duplicate_registration: false,
+              permission_source: "unset",
+              permission_matches_helper: false,
+              ownership_manifest_present: false,
+              project_or_agent_override_possible: true,
+              restart_required: "unknown",
+            },
             ok: false,
           };
         },
@@ -427,5 +468,27 @@ describe("CLI process contract", () => {
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stdout)).toMatchObject({ ok: false });
     expect(result.stderr).toBe("");
+  });
+
+  it("prints helper and registration readiness for a healthy doctor check", async () => {
+    const result = await captureMain(["doctor", "--json"], services());
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      helper_config: {
+        status: "valid",
+        consent_valid: true,
+        provider_connected: true,
+        image_capable: true,
+      },
+      opencode_registration: {
+        status: "valid",
+        plugin_registered: true,
+        permission_matches_helper: true,
+        project_or_agent_override_possible: true,
+        restart_required: "unknown",
+      },
+      ok: true,
+    });
   });
 });

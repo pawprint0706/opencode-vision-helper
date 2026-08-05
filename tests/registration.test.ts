@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -6,6 +7,7 @@ import { parse } from "jsonc-parser";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  diagnoseOpenCodeRegistration,
   inspectOpenCodeRegistration,
   OPENCODE_PLUGIN_PACKAGE,
   registerOpenCodePlugin,
@@ -94,6 +96,67 @@ describe("OpenCode global registration", () => {
     });
     expect(await readFile(location.configPath, "utf8")).toBe(configBefore);
     expect(await readFile(location.manifestPath, "utf8")).toBe(manifestBefore);
+  });
+
+  it("diagnoses direct registration and scalar global permission without writing", async () => {
+    const location = paths();
+    await mkdir(dirname(location.configPath), { recursive: true });
+    await writeFile(
+      location.configPath,
+      JSON.stringify({ plugin: [OPENCODE_PLUGIN_PACKAGE], permission: "allow" }, null, 2),
+    );
+
+    await expect(diagnoseOpenCodeRegistration(location)).resolves.toMatchObject({
+      npmPluginEntries: 1,
+      legacyWrapperPresent: false,
+      legacyWrapperOwned: false,
+      pluginRegistered: true,
+      duplicateRegistration: false,
+      permission: "allow",
+      permissionSource: "global",
+      ownershipManifestPresent: false,
+    });
+  });
+
+  it("distinguishes an owned legacy wrapper from an unowned local plugin", async () => {
+    const location = paths();
+    const wrapperPath = join(dirname(location.configPath), "plugins", "vision-helper.ts");
+    const legacyManifestPath = join(
+      dirname(location.configPath),
+      ".opencode-vision-helper-install.json",
+    );
+    const wrapper =
+      'export { VisionHelperPlugin } from "@pawprint0706/opencode-vision-helper/plugin";\n';
+    await mkdir(dirname(wrapperPath), { recursive: true });
+    await writeFile(location.configPath, '{"permission":{"vision_analyze":"ask"}}\n');
+    await writeFile(wrapperPath, wrapper);
+
+    await expect(diagnoseOpenCodeRegistration(location)).resolves.toMatchObject({
+      legacyWrapperPresent: true,
+      legacyWrapperOwned: false,
+      pluginRegistered: false,
+    });
+
+    await writeFile(
+      legacyManifestPath,
+      `${JSON.stringify({
+        schema: 1,
+        owner: "opencode-vision-helper",
+        version: "0.1.0",
+        packageSpec: "file:test",
+        files: [
+          {
+            path: "plugins/vision-helper.ts",
+            sha256: createHash("sha256").update(wrapper).digest("hex"),
+          },
+        ],
+      })}\n`,
+    );
+    await expect(diagnoseOpenCodeRegistration(location)).resolves.toMatchObject({
+      legacyWrapperPresent: true,
+      legacyWrapperOwned: true,
+      pluginRegistered: true,
+    });
   });
 
   it("requires explicit confirmation before replacing an existing tool permission", async () => {
