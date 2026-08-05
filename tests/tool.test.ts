@@ -4,9 +4,14 @@ import type { PluginInput, ToolContext } from "@opencode-ai/plugin";
 import type { OpencodeClient, Part } from "@opencode-ai/sdk/v2";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  CLOUD_UPLOAD_NOTICE_VERSION,
+  HELPER_CONFIG_SCHEMA,
+  type HelperConfig,
+} from "../src/config.js";
 import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
-import { VisionHelperPlugin } from "../src/plugin.js";
+import { createVisionHelperPlugin, VisionHelperPlugin } from "../src/plugin.js";
 import { adaptPluginClient } from "../src/plugin-client.js";
 import { createVisionAnalyzeTool, type VisionToolDependencies } from "../src/tool.js";
 
@@ -19,6 +24,18 @@ const image: PreparedImage = {
   originalWidth: 1,
   originalHeight: 1,
 };
+
+function acceptedConfig(model = "opencode-go/stored-vision"): HelperConfig {
+  return {
+    schema: HELPER_CONFIG_SCHEMA,
+    consent: {
+      cloudUpload: true,
+      noticeVersion: CLOUD_UPLOAD_NOTICE_VERSION,
+      acceptedAt: "2026-08-05T00:00:00.000Z",
+    },
+    openCode: { permission: "ask", model },
+  };
+}
 
 function context(directory: string, worktree = directory, abort = new AbortController().signal) {
   const ask = vi.fn(async () => undefined);
@@ -41,6 +58,7 @@ function dependencies(
 ): Partial<VisionToolDependencies> {
   return {
     validateCaller: async () => ({ providerID: "opencode-go", modelID: "text-only" }),
+    readConfig: async () => acceptedConfig(),
     ...overrides,
   };
 }
@@ -98,6 +116,83 @@ describe("vision_analyze native tool", () => {
       { model: "opencode-go/vision" },
     );
     expect(hooks.tool).toHaveProperty("vision_analyze");
+  });
+
+  it("defers a broken helper config until invocation instead of breaking plugin startup", async () => {
+    const directory = resolve("project");
+    const toolContext = context(directory);
+    const plugin = createVisionHelperPlugin(
+      dependencies({
+        readConfig: async () => {
+          throw new AppError("CONFIGURATION", "The helper config is malformed.");
+        },
+      }),
+    );
+    const hooks = await plugin({
+      client: {} as PluginInput["client"],
+      serverUrl: new URL("http://127.0.0.1:4096"),
+      directory,
+      worktree: directory,
+    } as PluginInput);
+    const definition = hooks.tool?.vision_analyze;
+    if (!definition) {
+      throw new Error("vision_analyze was not registered");
+    }
+
+    const result = await definition.execute(
+      { image: "screen.png", model: "opencode-go/vision" },
+      toolContext.value,
+    );
+    expect(JSON.parse(result as string)).toMatchObject({
+      status: "error",
+      error_code: "CONFIGURATION",
+      message: "The helper config is malformed.",
+    });
+    expect(toolContext.ask).not.toHaveBeenCalled();
+  });
+
+  it("loads the saved model through the plugin without explicit plugin options", async () => {
+    const previous = process.env.OPENCODE_VISION_MODEL;
+    delete process.env.OPENCODE_VISION_MODEL;
+    const directory = resolve("project");
+    const analyze = vi.fn(async () => ({
+      model: "opencode-go/plugin-stored",
+      text: "plugin result",
+    }));
+    try {
+      const plugin = createVisionHelperPlugin(
+        dependencies({
+          readConfig: async () => acceptedConfig("opencode-go/plugin-stored"),
+          canonicalize: async (path) => resolve(path),
+          prepareImage: async () => image,
+          analyze,
+        }),
+      );
+      const hooks = await plugin({
+        client: {} as PluginInput["client"],
+        serverUrl: new URL("http://127.0.0.1:4096"),
+        directory,
+        worktree: directory,
+      } as PluginInput);
+      const definition = hooks.tool?.vision_analyze;
+      if (!definition) {
+        throw new Error("vision_analyze was not registered");
+      }
+
+      await expect(
+        definition.execute({ image: "screen.png" }, context(directory).value),
+      ).resolves.toMatchObject({ output: "plugin result" });
+      expect(analyze).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ model: "opencode-go/plugin-stored" }),
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.OPENCODE_VISION_MODEL;
+      } else {
+        process.env.OPENCODE_VISION_MODEL = previous;
+      }
+    }
   });
 
   it("adapts the supplied plugin client without creating another connection", async () => {
@@ -173,6 +268,7 @@ describe("vision_analyze native tool", () => {
         canonicalize: async (path) => resolve(path),
         prepareImage: async () => image,
         analyze: async () => ({ model: "opencode-go/vision", text: "fallback result" }),
+        readConfig: async () => acceptedConfig(),
       },
       { defaultModel: "opencode-go/vision" },
     );
@@ -193,7 +289,7 @@ describe("vision_analyze native tool", () => {
     const analyze = vi.fn();
     const definition = createVisionAnalyzeTool(
       caller.client,
-      { canonicalize, prepareImage: prepare, analyze },
+      { canonicalize, prepareImage: prepare, analyze, readConfig: async () => acceptedConfig() },
       { defaultModel: "opencode-go/vision" },
     );
 
@@ -603,20 +699,89 @@ describe("vision_analyze native tool", () => {
     );
   });
 
-  it("returns the stable error contract when no model is configured", async () => {
+  it("uses the saved model when no tool, plugin, or environment override exists", async () => {
+    const previous = process.env.OPENCODE_VISION_MODEL;
+    delete process.env.OPENCODE_VISION_MODEL;
+    const analyze = vi.fn(async () => ({
+      model: "opencode/stored-vision",
+      text: "stored result",
+    }));
+    try {
+      const definition = createVisionAnalyzeTool(
+        {} as OpencodeClient,
+        dependencies({
+          readConfig: async () => acceptedConfig("opencode/stored-vision"),
+          canonicalize: async (path) => resolve(path),
+          prepareImage: async () => image,
+          analyze,
+        }),
+      );
+
+      await expect(
+        definition.execute({ image: "screen.png" }, context(resolve("project")).value),
+      ).resolves.toMatchObject({ output: "stored result" });
+      expect(analyze).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ model: "opencode/stored-vision", uploadApproved: true }),
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.OPENCODE_VISION_MODEL;
+      } else {
+        process.env.OPENCODE_VISION_MODEL = previous;
+      }
+    }
+  });
+
+  it("uses environment model ahead of the saved model", async () => {
+    const previous = process.env.OPENCODE_VISION_MODEL;
+    process.env.OPENCODE_VISION_MODEL = "opencode-go/environment-vision";
+    const analyze = vi.fn(async () => ({
+      model: "opencode-go/environment-vision",
+      text: "environment result",
+    }));
+    try {
+      const definition = createVisionAnalyzeTool(
+        {} as OpencodeClient,
+        dependencies({
+          canonicalize: async (path) => resolve(path),
+          prepareImage: async () => image,
+          analyze,
+        }),
+      );
+
+      await definition.execute({ image: "screen.png" }, context(resolve("project")).value);
+      expect(analyze).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ model: "opencode-go/environment-vision" }),
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.OPENCODE_VISION_MODEL;
+      } else {
+        process.env.OPENCODE_VISION_MODEL = previous;
+      }
+    }
+  });
+
+  it("returns the stable error contract when native consent is not configured", async () => {
     const previous = process.env.OPENCODE_VISION_MODEL;
     delete process.env.OPENCODE_VISION_MODEL;
     try {
-      const definition = createVisionAnalyzeTool({} as OpencodeClient);
-      const result = await definition.execute(
-        { image: "screen.png" },
-        context(resolve("project")).value,
+      const toolContext = context(resolve("project"));
+      const canonicalize = vi.fn();
+      const definition = createVisionAnalyzeTool(
+        {} as OpencodeClient,
+        dependencies({ readConfig: async () => undefined, canonicalize }),
       );
+      const result = await definition.execute({ image: "screen.png" }, toolContext.value);
       expect(JSON.parse(result as string)).toMatchObject({
         status: "error",
-        error_code: "CONFIGURATION",
+        error_code: "CONSENT_REQUIRED",
         retryable: false,
       });
+      expect(canonicalize).not.toHaveBeenCalled();
+      expect(toolContext.ask).not.toHaveBeenCalled();
     } finally {
       if (previous === undefined) {
         delete process.env.OPENCODE_VISION_MODEL;

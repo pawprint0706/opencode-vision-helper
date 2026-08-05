@@ -12,6 +12,7 @@ import {
   parseHelperConfig,
   readHelperConfig,
   readHelperConfigState,
+  resolveConfiguredVisionModel,
   resolveHelperConfigPath,
   writeHelperConfig,
 } from "../src/config.js";
@@ -74,6 +75,16 @@ describe("helper configuration", () => {
     };
     expect(parseHelperConfig(JSON.stringify(oldNotice))).toEqual(oldNotice);
     expect(hasValidCloudUploadConsent(oldNotice)).toBe(false);
+  });
+
+  it("selects explicit and environment overrides before the saved model", () => {
+    const config = acceptedConfig({ model: "opencode-go/stored" });
+    expect(resolveConfiguredVisionModel(config, "opencode-go/explicit", "opencode/env")).toBe(
+      "opencode-go/explicit",
+    );
+    expect(resolveConfiguredVisionModel(config, undefined, "opencode/env")).toBe("opencode/env");
+    expect(resolveConfiguredVisionModel(config, undefined, undefined)).toBe("opencode-go/stored");
+    expect(resolveConfiguredVisionModel(undefined, undefined, undefined)).toBeUndefined();
   });
 
   it("fails closed for malformed, future, or unsupported configuration", () => {

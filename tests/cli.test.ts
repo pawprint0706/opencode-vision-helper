@@ -6,6 +6,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
 import { type CliServices, isEntrypoint, main, parseAnalyzeArgs } from "../src/cli.js";
+import {
+  CLOUD_UPLOAD_NOTICE_VERSION,
+  HELPER_CONFIG_SCHEMA,
+  type HelperConfig,
+} from "../src/config.js";
 import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
 
@@ -19,9 +24,17 @@ type CliResult = {
 
 async function runCli(args: string[]): Promise<CliResult> {
   return new Promise((resolve, reject) => {
+    const isolatedHome = join(projectRoot, "tests", "fixtures", "missing-cli-home");
+    const environment = {
+      ...process.env,
+      HOME: isolatedHome,
+      USERPROFILE: isolatedHome,
+      NO_COLOR: "1",
+    };
+    delete environment.OPENCODE_VISION_MODEL;
     const child = spawn(process.execPath, ["--import", "tsx", "src/cli.ts", ...args], {
       cwd: projectRoot,
-      env: { ...process.env, NO_COLOR: "1" },
+      env: environment,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -46,6 +59,18 @@ const preparedImage: PreparedImage = {
   originalWidth: 1,
   originalHeight: 1,
 };
+
+function acceptedConfig(model = "opencode-go/stored-vision"): HelperConfig {
+  return {
+    schema: HELPER_CONFIG_SCHEMA,
+    consent: {
+      cloudUpload: true,
+      noticeVersion: CLOUD_UPLOAD_NOTICE_VERSION,
+      acceptedAt: "2026-08-05T00:00:00.000Z",
+    },
+    openCode: { permission: "ask", model },
+  };
+}
 
 describe("CLI entrypoint", () => {
   it("recognizes the same file through a symlinked directory", async () => {
@@ -93,6 +118,7 @@ function services(overrides: Partial<CliServices> = {}): CliServices {
       registrationChanged: true,
       openCodeConfigPath: "opencode.json",
     }),
+    readConfig: async () => acceptedConfig(),
     ...overrides,
   };
 }
@@ -159,7 +185,7 @@ describe("CLI process contract", () => {
 
   it.each([
     { args: ["unknown"], code: "BAD_REQUEST" },
-    { args: ["analyze", "screen.png"], code: "UPLOAD_NOT_APPROVED" },
+    { args: ["analyze", "screen.png"], code: "CONSENT_REQUIRED" },
     {
       args: ["analyze", "screen.png", "--allow-upload"],
       code: "CONFIGURATION",
@@ -198,6 +224,22 @@ describe("CLI process contract", () => {
     expect(runSetup).toHaveBeenCalledOnce();
   });
 
+  it("dispatches config-only setup without OpenCode registration", async () => {
+    const runSetup = vi.fn(async () => ({
+      status: "configured" as const,
+      changed: true,
+      configPath: "config.json",
+      consentReused: false,
+      permission: "ask" as const,
+      model: "opencode-go/vision",
+      openCodeRegistration: "skipped" as const,
+      registrationChanged: false,
+    }));
+
+    await expect(main(["setup", "--config-only"], services({ runSetup }))).resolves.toBe(0);
+    expect(runSetup).toHaveBeenCalledWith({ registerOpenCode: false });
+  });
+
   it("prints a structured human result and cleanup warning on separate streams", async () => {
     const result = await captureMain(
       ["analyze", "screen.png", "--model", "opencode-go/vision", "--allow-upload"],
@@ -220,6 +262,72 @@ describe("CLI process contract", () => {
     expect(result.stdout).toBe("Summary: Looks good\nIssues: none\n");
     expect(result.stderr).toContain("Warning [SESSION_CLEANUP_FAILED]");
     expect(result.stderr).toContain("Session: retained-session.");
+  });
+
+  it("uses the saved model and consent when analyze has no overrides", async () => {
+    const analyzeWithOpenCode = vi.fn(services().analyzeWithOpenCode);
+
+    await expect(main(["analyze", "screen.png"], services({ analyzeWithOpenCode }))).resolves.toBe(
+      0,
+    );
+    expect(analyzeWithOpenCode).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "opencode-go/stored-vision", uploadApproved: true }),
+    );
+  });
+
+  it("uses explicit model, environment, then stored model precedence", async () => {
+    const previous = process.env.OPENCODE_VISION_MODEL;
+    process.env.OPENCODE_VISION_MODEL = "opencode/environment-vision";
+    try {
+      const explicitAnalyze = vi.fn(services().analyzeWithOpenCode);
+      await main(
+        ["analyze", "screen.png", "--model", "opencode-go/explicit-vision"],
+        services({ analyzeWithOpenCode: explicitAnalyze }),
+      );
+      expect(explicitAnalyze).toHaveBeenCalledWith(
+        expect.objectContaining({ model: "opencode-go/explicit-vision" }),
+      );
+
+      const environmentAnalyze = vi.fn(services().analyzeWithOpenCode);
+      await main(["analyze", "screen.png"], services({ analyzeWithOpenCode: environmentAnalyze }));
+      expect(environmentAnalyze).toHaveBeenCalledWith(
+        expect.objectContaining({ model: "opencode/environment-vision" }),
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.OPENCODE_VISION_MODEL;
+      } else {
+        process.env.OPENCODE_VISION_MODEL = previous;
+      }
+    }
+  });
+
+  it("keeps --allow-upload as a one-invocation consent path without reading config", async () => {
+    const readConfig = vi.fn(async () => {
+      throw new Error("config should not be read");
+    });
+
+    await expect(
+      main(
+        ["analyze", "screen.png", "--model", "opencode-go/explicit-vision", "--allow-upload"],
+        services({ readConfig }),
+      ),
+    ).resolves.toBe(0);
+    expect(readConfig).not.toHaveBeenCalled();
+  });
+
+  it("fails before reading the image when saved consent is absent", async () => {
+    const prepareImage = vi.fn(async () => preparedImage);
+    const config = acceptedConfig();
+    config.consent = { cloudUpload: false };
+
+    await expect(
+      main(
+        ["analyze", "screen.png", "--model", "opencode-go/explicit-vision"],
+        services({ prepareImage, readConfig: async () => config }),
+      ),
+    ).rejects.toMatchObject({ code: "CONSENT_REQUIRED" });
+    expect(prepareImage).not.toHaveBeenCalled();
   });
 
   it("rejects an unsupported model before reading the image", async () => {

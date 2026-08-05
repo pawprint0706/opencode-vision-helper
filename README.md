@@ -18,7 +18,8 @@ session delegated analysis to `opencode-go/gpt-5.6-luna`, and a forced
 `opencode-go/gpt-5.6-luna` call was refused with `CALLER_VISION_CAPABLE`. The package
 is not published yet; its scoped public-package metadata is prepared and
 packed-artifact installation is verified on every `npm run verify`. Interactive
-setup and registry release work remain in progress.
+setup, saved consent/model selection, and ownership-tracked global registration are
+implemented. Registry release work remains in progress.
 
 The target flow is:
 
@@ -33,6 +34,24 @@ OpenCode remains the owner of authentication, model routing, and provider
 configuration. This project will not store API keys or offer arbitrary provider
 URLs.
 
+## Quick start
+
+These commands are the intended flow after the first registry publication. Install
+OpenCode first and use its `/connect` flow to connect OpenCode Go or Zen.
+
+```powershell
+npm install -g @pawprint0706/opencode-vision-helper
+opencode-vision-helper setup
+opencode-vision-helper doctor
+opencode-vision-helper analyze .\screen.png
+```
+
+`setup` displays the cloud-upload notice, asks for `ask` or `allow`, selects a
+connected image-capable model, saves the helper config, and merges only the npm
+plugin entry and `permission.vision_analyze` into the global OpenCode config. Restart
+OpenCode after setup. `ask` is recommended; `allow` permits future native tool calls
+without a confirmation UI when no more specific OpenCode setting overrides it.
+
 ## CLI
 
 ```powershell
@@ -41,10 +60,11 @@ opencode-vision-helper analyze .\screen.png --model opencode-go/<model-id> --all
 opencode-vision-helper analyze .\screen.png --model opencode/<model-id> --prompt "Read the heading" --allow-upload
 ```
 
-The model can alternatively be supplied through `OPENCODE_VISION_MODEL`.
-Analysis is refused unless `--allow-upload` is present because the image will
-leave the local machine. The default prompt uses a validated JSON report;
-`--prompt` returns the provider's free-form text.
+The model precedence is `--model`, `OPENCODE_VISION_MODEL`, then the model saved by
+`setup`. Valid saved consent permits an explicit CLI `analyze` command without
+repeating `--allow-upload`. That flag remains a one-invocation consent path and does
+not write configuration. The default prompt uses a validated JSON report; `--prompt`
+returns the provider's free-form text.
 
 Successful results and help are written to stdout with exit code 0. Errors are
 written as a stable JSON object to stderr with exit code 1. `doctor` also returns
@@ -58,6 +78,7 @@ opencode-vision-helper analyze <image> [--prompt <text>] [--model <provider/mode
                                       [--json] [--allow-upload] [--keep-session]
                                       [--timeout <seconds>]
 opencode-vision-helper doctor
+opencode-vision-helper setup [--config-only]
 ```
 
 Only `opencode-go/<model-id>` and `opencode/<model-id>` model identifiers are
@@ -72,7 +93,9 @@ in memory without creating a temporary file. Before reading the image, the adapt
 identifies the calling model from the current OpenCode message and checks the same
 server's model metadata. It runs only when `capabilities.input.image` is explicitly
 `false`; image-capable callers are told to analyze the image directly, while missing
-or unverifiable metadata fails closed. Immediately before cloud analysis,
+or unverifiable metadata fails closed. The native tool also requires current saved
+cloud-upload consent; missing or outdated consent returns `CONSENT_REQUIRED` before
+image reads or permission prompts. Immediately before cloud analysis,
 the tool requests OpenCode's `vision_analyze` permission for the selected model;
 `ask` is the recommended policy and `deny` prevents the tool from being exposed.
 
@@ -105,9 +128,11 @@ npm run test:live -- --allow-live `
   --zen-model opencode/<model-id>
 ```
 
-After building, install the native adapter for the current project with:
+After building, save consent and a model without adding the public npm registration,
+then install the development adapter for the current project:
 
 ```powershell
+node .\dist\cli.js setup --config-only
 npm run adapter:install -- --scope project
 ```
 

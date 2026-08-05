@@ -7,6 +7,7 @@ export type ErrorCode =
   | "MODEL_NOT_VISION_CAPABLE"
   | "CALLER_MODEL_UNVERIFIED"
   | "CALLER_VISION_CAPABLE"
+  | "CONSENT_REQUIRED"
   | "SETUP_CANCELED"
   | "UPLOAD_NOT_APPROVED"
   | "ANALYSIS_ABORTED"
@@ -24,7 +25,8 @@ const RETRYABLE = new Set<ErrorCode>([
 
 const NEXT_ACTION: Record<ErrorCode, string> = {
   BAD_REQUEST: "Check the image path, format, and command arguments.",
-  CONFIGURATION: "Pass --model opencode-go/<id> or opencode/<id>, or set OPENCODE_VISION_MODEL.",
+  CONFIGURATION:
+    "Run opencode-vision-helper setup, pass --model opencode-go/<id> or opencode/<id>, or set OPENCODE_VISION_MODEL.",
   OPENCODE_UNAVAILABLE: "Install or start OpenCode, then retry.",
   PROVIDER_NOT_CONNECTED: "Connect OpenCode Go or Zen with /connect, then retry.",
   MODEL_NOT_FOUND: "Choose an available Go or Zen model shown by doctor.",
@@ -32,6 +34,8 @@ const NEXT_ACTION: Record<ErrorCode, string> = {
   CALLER_MODEL_UNVERIFIED:
     "Use a connected OpenCode Go or Zen model whose metadata explicitly disables image input.",
   CALLER_VISION_CAPABLE: "Analyze the image directly with the calling model.",
+  CONSENT_REQUIRED:
+    "Run opencode-vision-helper setup to review and accept the cloud-upload notice.",
   SETUP_CANCELED: "Run opencode-vision-helper setup again when you are ready.",
   UPLOAD_NOT_APPROVED:
     "Review the image, then retry with --allow-upload in the CLI or approve the OpenCode permission.",

@@ -6,6 +6,11 @@ import type { Message, OpencodeClient, Part } from "@opencode-ai/sdk/v2";
 
 import { createAbortScope, DEFAULT_ANALYSIS_TIMEOUT_MS } from "./abort.js";
 import { selectMessageImage } from "./attachment.js";
+import {
+  hasValidCloudUploadConsent,
+  readHelperConfig,
+  resolveConfiguredVisionModel,
+} from "./config.js";
 import { AppError, asAppError, mapOpenCodeError } from "./errors.js";
 import { type PreparedImage, prepareImage, prepareImageBuffer } from "./imaging.js";
 import {
@@ -28,6 +33,7 @@ export type VisionToolDependencies = {
     context: ToolContext,
     signal: AbortSignal,
   ): Promise<ModelRef>;
+  readConfig: typeof readHelperConfig;
 };
 
 export type VisionToolOptions = {
@@ -42,6 +48,7 @@ const DEFAULT_DEPENDENCIES: VisionToolDependencies = {
   canonicalize: realpath,
   messageParts: loadCurrentMessageParts,
   validateCaller: validateCallingModel,
+  readConfig: readHelperConfig,
 };
 
 function callingModelRef(info: Message): ModelRef {
@@ -162,7 +169,7 @@ export function createVisionAnalyzeTool(
       "Do not call this when you can analyze images directly; execution verifies the calling " +
       "model against OpenCode metadata and refuses image-capable or unverifiable callers. " +
       "This uploads the selected image to the configured cloud provider; use it only when " +
-      "the user has approved that transmission.",
+      "the user has approved that transmission through opencode-vision-helper setup.",
     args: {
       image: tool.schema
         .string()
@@ -184,11 +191,11 @@ export function createVisionAnalyzeTool(
     },
     async execute(args, context: ToolContext) {
       try {
-        const model = args.model ?? options.defaultModel ?? process.env.OPENCODE_VISION_MODEL;
-        if (!model) {
-          throw new AppError("CONFIGURATION", "No vision model was selected.");
+        const overrideModel =
+          args.model ?? options.defaultModel ?? process.env.OPENCODE_VISION_MODEL;
+        if (overrideModel) {
+          parseModelRef(overrideModel);
         }
-        parseModelRef(model);
 
         const abortScope = createAbortScope(
           options.timeoutMs ?? DEFAULT_ANALYSIS_TIMEOUT_MS,
@@ -197,6 +204,23 @@ export function createVisionAnalyzeTool(
         try {
           abortScope.signal.throwIfAborted();
           await services.validateCaller(client, context, abortScope.signal);
+          const config = await services.readConfig();
+          if (!config || !hasValidCloudUploadConsent(config)) {
+            throw new AppError(
+              "CONSENT_REQUIRED",
+              "The native vision tool requires current cloud-upload consent from opencode-vision-helper setup.",
+            );
+          }
+          const model = resolveConfiguredVisionModel(
+            config,
+            args.model,
+            options.defaultModel,
+            process.env.OPENCODE_VISION_MODEL,
+          );
+          if (!model) {
+            throw new AppError("CONFIGURATION", "No vision model was selected.");
+          }
+          parseModelRef(model);
           const preparePath = async (inputPath: string): Promise<PreparedImage> => {
             const candidate = resolve(context.directory, inputPath);
             let imagePath: string;

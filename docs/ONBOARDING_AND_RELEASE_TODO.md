@@ -45,9 +45,9 @@ OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. �
 | 전역 CLI | `bin`과 packed-artifact 테스트가 있음 | scoped 공개 패키지로 변경하고 실제 registry 설치 검증 |
 | npm 배포 | scoped 이름과 공개 배포 메타데이터 적용 완료 | 실제 registry publish 및 clean install 검증 |
 | 최초 설정 | 대화형 `setup`과 전역 등록까지 구현 | 설정 조회/재설정 명령 추가 |
-| 업로드 동의 | CLI 호출마다 `--allow-upload` 필요 | 1회 동의의 의미와 저장/철회 정책 구현 |
+| 업로드 동의 | CLI는 저장 동의 또는 1회성 `--allow-upload`, native tool은 저장 동의를 요구 | 동의 조회·철회 명령 추가 |
 | provider/모델 선택 | setup이 연결된 provider와 image-capable 모델을 선택·저장 | 저장 모델의 CLI/plugin 사용과 drift 진단 |
-| 기본 모델 | CLI 인자 또는 `OPENCODE_VISION_MODEL` | helper 설정 파일을 기본값 소스로 추가 |
+| 기본 모델 | CLI와 plugin이 명시 override 후 helper 저장 모델을 사용 | doctor drift 진단 추가 |
 | OpenCode 등록 | setup이 공개 npm 플러그인을 제한적으로 병합하고 ownership manifest를 기록 | 수동 fallback과 ownership 기반 제거 완성 |
 | 권한 설정 | setup이 `ask`/`allow`를 선택받아 정확한 한 항목만 병합 | 충돌 시 수동 fallback과 제거 시 원래 값 복원 완성 |
 | 제거/업그레이드 | wrapper 소유권은 검증하지만 사용자 병합 설정은 제거하지 않음 | 새로 소유하는 설정 조각까지 정확한 소유권/충돌 정책 정의 |
@@ -329,8 +329,9 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   기존 설정을 보존한다.
 - [x] 동시 writer lock, stale revision, 손상된 JSON, 미래 schema 거절을 테스트한다.
   실제 이전 schema가 생기면 해당 버전 migration fixture를 추가한다.
-- [ ] `--model` 및 `OPENCODE_VISION_MODEL`과 저장값의 우선순위를 확정한다. 권장값은
-  `명시적 CLI/tool 인자 > 환경 변수 > 저장된 기본 모델`이다.
+- [x] CLI 우선순위는 `--model > OPENCODE_VISION_MODEL > 저장된 기본 모델`, native
+  tool은 `tool 인자 > plugin option > OPENCODE_VISION_MODEL > 저장된 기본 모델`로
+  확정하고 공통 resolver를 사용한다.
 
 ### P1. 대화형 `setup` 명령
 
@@ -370,9 +371,9 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 
 ### P1. CLI 설정 사용
 
-- [ ] `analyze`가 명시 model/env가 없을 때 저장된 model을 읽는다.
-- [ ] 저장된 동의가 없거나 철회됐을 때 분석을 fail closed로 거절한다.
-- [ ] 기존 `--allow-upload`의 유지/대체 정책을 P0 결정과 일치시킨다.
+- [x] `analyze`가 명시 model/env가 없을 때 저장된 model을 읽는다.
+- [x] 저장된 동의가 없거나 철회됐을 때 분석을 `CONSENT_REQUIRED`로 fail closed한다.
+- [x] 기존 `--allow-upload`는 config를 쓰지 않는 현재 CLI 실행 한 번의 동의로 유지한다.
 - [ ] `doctor`에 다음 항목을 추가하되 자격 증명 내용은 노출하지 않는다.
 
   - helper config 존재/유효 여부
@@ -382,18 +383,19 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   - 재시작 필요 여부를 판단할 수 있다면 그 상태
 
 - [ ] `config show`, `config reset` 또는 이에 준하는 조회/철회 UX를 추가한다.
-- [ ] 설정 오류의 remediation 문구를 `setup` 기준으로 갱신한다.
+- [x] 설정 및 동의 오류의 remediation 문구를 `setup` 기준으로 갱신한다.
 
 ### P1. OpenCode plugin의 저장 설정 사용
 
-- [ ] `src/plugin.ts`가 plugin option/tool argument/env에 model이 없을 때 helper 설정의
+- [x] `src/plugin.ts`가 plugin option/tool argument/env에 model이 없을 때 helper 설정의
   model을 사용하도록 한다.
-- [ ] CLI와 plugin이 동일한 schema validator와 model precedence를 사용한다.
-- [ ] plugin 초기화 시 설정 파일이 없거나 손상된 경우 OpenCode 전체 시작을 깨뜨리지
+- [x] CLI와 plugin이 동일한 schema validator와 model resolver를 사용한다.
+- [x] plugin 초기화 시 설정 파일이 없거나 손상된 경우 OpenCode 전체 시작을 깨뜨리지
   말고, tool 호출 시 안전한 `CONFIGURATION` 오류와 `setup` 안내를 반환한다.
-- [ ] plugin은 클라우드 동의가 없으면 permission UI 이전에 fail closed로 거절한다.
-- [ ] `context.ask` 직전에 모델과 이미지가 전송된다는 metadata를 계속 제공한다.
-- [ ] caller capability gate, external-directory permission, attachment 처리, 모든 tool
+- [x] plugin은 클라우드 동의가 없으면 permission UI 이전에 `CONSENT_REQUIRED`로
+  fail closed한다.
+- [x] `context.ask` 직전에 모델과 이미지가 전송된다는 metadata를 계속 제공한다.
+- [x] caller capability gate, external-directory permission, attachment 처리, 모든 tool
   비활성화, 임시 세션 정리는 변경 후에도 유지한다.
 
 ### P1. 전역 설치 및 제거 lifecycle
@@ -437,7 +439,7 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [ ] scoped package 이름과 plugin subpath를 packed artifact consumer에서 import하고
   OpenCode fake fixture로 로드한다.
 - [ ] 전역 npm 설치로 생성된 CLI shim을 Windows/macOS/Linux에서 실행한다.
-- [ ] 저장된 기본 모델로 CLI와 native tool이 같은 모델을 선택하는지 테스트한다.
+- [x] 저장된 기본 모델과 명시 override 우선순위를 CLI와 native tool에서 테스트한다.
 - [ ] project/agent override 때문에 global permission과 실제 permission이 다른 경우의
   안내를 테스트한다.
 - [ ] uninstall/upgrade가 사용자가 수정한 entry를 삭제하거나 덮어쓰지 않는지
@@ -464,7 +466,7 @@ live 테스트는 현재 AGENTS.md 경계대로 매번 사용자 승인을 받�
 
 ## README 및 문서 TODO
 
-- [ ] README 첫 화면에 다음 Quick start를 추가한다.
+- [x] README 첫 화면에 다음 Quick start를 추가한다.
 
 ```powershell
 npm install -g @pawprint0706/opencode-vision-helper
@@ -473,15 +475,16 @@ opencode-vision-helper doctor
 opencode-vision-helper analyze .\screen.png
 ```
 
-- [ ] setup 전에 OpenCode 설치와 `/connect`로 Go 또는 Zen 연결이 필요함을 설명한다.
-- [ ] setup 각 질문의 의미와 `ask` 권장 이유, `allow` 위험을 설명한다.
-- [ ] CLI 동의 규칙과 OpenCode permission 규칙이 별개라면 그 차이를 예제로 설명한다.
+- [x] setup 전에 OpenCode 설치와 `/connect`로 Go 또는 Zen 연결이 필요함을 설명한다.
+- [x] setup 각 질문의 의미와 `ask` 권장 이유, `allow` 위험을 설명한다.
+- [x] CLI 저장/1회 동의와 OpenCode native permission이 별개임을 설명한다.
 - [ ] config 파일 위치, model precedence, 재설정, 동의 철회, uninstall/purge 방법을
   문서화한다.
 - [ ] global 설정은 project/agent 설정에 의해 override될 수 있음을 설명한다.
 - [ ] OpenCode restart, plugin 미표시, provider 미연결, model 사라짐, JSONC 충돌,
   권한 prompt 미표시 문제의 troubleshooting을 추가한다.
-- [ ] 개발 checkout용 `adapter:install` 문서는 일반 사용자 Quick start와 분리한다.
+- [x] 개발 checkout용 `adapter:install`과 `setup --config-only` 문서를 일반 사용자
+  Quick start와 분리한다.
 - [ ] README와 `docs/OPENCODE.md`의 private/unpublished 및 unscoped package 예시를
   공개 scoped package 기준으로 갱신한다.
 - [ ] `docs/VALIDATION.md`에 publish된 artifact의 version, integrity/provenance,

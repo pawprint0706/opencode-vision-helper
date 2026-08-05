@@ -13,12 +13,26 @@ OpenCode's `/connect` flow and choose an image-capable `opencode-go/*` or
 `opencode/*` model. This helper never reads, imports, copies, or changes the
 resulting credentials.
 
+After registry publication, the recommended global installation flow is:
+
+```powershell
+npm install -g @pawprint0706/opencode-vision-helper
+opencode-vision-helper setup
+```
+
+Setup saves the versioned cloud-upload consent and selected vision model in
+`~/.config/opencode-vision-helper/config.json`. It then shows and atomically merges
+only `@pawprint0706/opencode-vision-helper` and `permission.vision_analyze` into the
+existing global `opencode.json` or `opencode.jsonc`. Existing comments and unrelated
+settings are preserved. Restart OpenCode afterward.
+
 ## Adapter installation
 
 Build this repository first:
 
 ```powershell
 npm run build
+node .\dist\cli.js setup --config-only
 ```
 
 Install the adapter for the current project or the global OpenCode configuration:
@@ -33,6 +47,10 @@ npm run adapter:install -- --scope global
 configuration root. The current development package defaults to a `file:`
 dependency on this checkout; override the printed dependency with
 `--package-spec <npm-version-or-file-spec>` when appropriate.
+
+`setup --config-only` is for this development/legacy wrapper path. It saves the same
+explicit consent and model selection but does not add the npm plugin to the global
+OpenCode config, preventing the wrapper and direct package from loading together.
 
 The installer creates only:
 
@@ -117,7 +135,9 @@ that requires explicit approval and must follow the archived project's
 No old provider credential is migrated; connect Go or Zen in OpenCode with
 `/connect` instead.
 
-The wrapper uses `OPENCODE_VISION_MODEL` unless the caller supplies `model`. As an
+The model precedence is a tool-call `model`, plugin option, `OPENCODE_VISION_MODEL`,
+then the model saved by setup. Every native invocation also requires current saved
+cloud-upload consent. As an
 alternative to installing the wrapper, package-only registration can add
 `["@pawprint0706/opencode-vision-helper", { "model": "opencode-go/<id>",
 "timeoutMs": 120000 }]` to the existing `plugin` array. Do not use both registration
@@ -137,9 +157,8 @@ remove previously merged snippets manually after reviewing unrelated settings.
 If the owned plugin was already deleted, the uninstaller can remove the validated
 stale manifest without touching anything else.
 
-The model may be supplied on each tool call or through
-`OPENCODE_VISION_MODEL`. Only `opencode-go/*` and `opencode/*` models whose input
-capabilities include images are accepted.
+Only `opencode-go/*` and `opencode/*` models whose input capabilities include images
+are accepted.
 
 That model is the delegated analysis model, not the model calling the tool. At the
 start of every native invocation, the adapter reads the caller identity from the
@@ -168,6 +187,11 @@ analysis. `ask` is the recommended default because it presents an approval UI fo
 each model call. `deny` removes the tool from that agent's available tool set. Use
 `allow` only in a trusted workflow where automatic image transmission is
 intentional.
+
+Saved helper consent and OpenCode permission are separate safeguards. Missing or
+outdated helper consent returns `CONSENT_REQUIRED` before image access or the
+permission UI. With valid consent, `ask` requests OpenCode approval for each model
+call in normal mode, while `allow` can proceed without that UI.
 
 Agent-specific rules can expose the tool only to a vision-limited agent:
 

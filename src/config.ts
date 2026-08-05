@@ -147,6 +147,13 @@ export function hasValidCloudUploadConsent(
   );
 }
 
+export function resolveConfiguredVisionModel(
+  config: HelperConfig | undefined,
+  ...overrides: Array<string | undefined>
+): string | undefined {
+  return overrides.find((model) => model !== undefined) ?? config?.openCode.model;
+}
+
 export function resolveHelperConfigPath(options: HelperConfigLocationOptions = {}): string {
   if (options.configPath) {
     return resolve(options.configPath);

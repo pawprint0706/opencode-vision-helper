@@ -300,6 +300,34 @@ describe("interactive setup", () => {
     await expect(readHelperConfig({ configPath })).resolves.toBeDefined();
   });
 
+  it("supports config-only setup for an ownership-checked legacy wrapper", async () => {
+    const configPath = join(temporaryRoot, "config.json");
+    const inspectRegistration = vi.fn(setupServices().inspectRegistration);
+    const registerPlugin = vi.fn(setupServices().registerPlugin);
+    const prompter = new FakePrompter(
+      true,
+      [true, true],
+      ["ask", "opencode-go", "opencode-go/vision-a"],
+    );
+
+    await expect(
+      runInteractiveSetup({
+        configLocation: { configPath },
+        registerOpenCode: false,
+        prompter,
+        services: setupServices({ inspectRegistration, registerPlugin }),
+      }),
+    ).resolves.toMatchObject({
+      status: "configured",
+      openCodeRegistration: "skipped",
+      registrationChanged: false,
+    });
+    expect(inspectRegistration).not.toHaveBeenCalled();
+    expect(registerPlugin).not.toHaveBeenCalled();
+    expect(prompter.writes.join("")).toContain("registration was skipped");
+    await expect(readHelperConfig({ configPath })).resolves.toBeDefined();
+  });
+
   it("fails before prompting when Go/Zen or image models are unavailable", async () => {
     const disconnected = new FakePrompter(true, [], []);
     await expect(

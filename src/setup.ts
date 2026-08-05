@@ -48,6 +48,7 @@ export type InteractiveSetupOptions = {
   directory?: string;
   configLocation?: HelperConfigLocationOptions;
   registrationLocation?: OpenCodeRegistrationOptions;
+  registerOpenCode?: boolean;
   prompter?: SetupPrompter;
   services?: SetupServices;
 };
@@ -60,9 +61,9 @@ export type SetupResult =
       consentReused: boolean;
       permission: HelperPermission;
       model: string;
-      openCodeRegistration: "registered" | "already-registered";
+      openCodeRegistration: "registered" | "already-registered" | "skipped";
       registrationChanged: boolean;
-      openCodeConfigPath: string;
+      openCodeConfigPath?: string;
     }
   | {
       status: "canceled";
@@ -208,6 +209,7 @@ export async function runInteractiveSetup(
   const directory = options.directory ?? process.cwd();
   const configLocation = options.configLocation ?? {};
   const registrationLocation = options.registrationLocation ?? {};
+  const shouldRegisterOpenCode = options.registerOpenCode !== false;
   try {
     if (!prompter.interactive) {
       throw new AppError(
@@ -337,7 +339,9 @@ export async function runInteractiveSetup(
       "model",
     );
 
-    const registrationPlan = await services.inspectRegistration(permission, registrationLocation);
+    const registrationPlan = shouldRegisterOpenCode
+      ? await services.inspectRegistration(permission, registrationLocation)
+      : undefined;
 
     prompter.write(
       "\nSetup summary\n" +
@@ -345,18 +349,20 @@ export async function runInteractiveSetup(
         `  Permission: ${permission}\n` +
         `  Vision model: ${model}\n` +
         `  Helper config: ${state.path}\n` +
-        `  OpenCode global config: ${registrationPlan.configPath}\n` +
-        "  OpenCode merge:\n" +
-        `${JSON.stringify(registrationPlan.snippet, null, 2)}\n` +
-        `  Existing helper plugin: ${registrationPlan.pluginPresent ? "registered" : "not registered"}\n` +
-        `  Existing vision_analyze permission: ${
-          registrationPlan.currentPermission === undefined
-            ? "not set"
-            : JSON.stringify(registrationPlan.currentPermission)
-        }\n`,
+        (registrationPlan
+          ? `  OpenCode global config: ${registrationPlan.configPath}\n` +
+            "  OpenCode merge:\n" +
+            `${JSON.stringify(registrationPlan.snippet, null, 2)}\n` +
+            `  Existing helper plugin: ${registrationPlan.pluginPresent ? "registered" : "not registered"}\n` +
+            `  Existing vision_analyze permission: ${
+              registrationPlan.currentPermission === undefined
+                ? "not set"
+                : JSON.stringify(registrationPlan.currentPermission)
+            }\n`
+          : "  OpenCode registration: skipped (--config-only)\n"),
     );
     if (
-      registrationPlan.permissionChange &&
+      registrationPlan?.permissionChange &&
       !(await prompter.confirm(
         `Replace only permission.vision_analyze with ${JSON.stringify(permission)}?`,
         false,
@@ -365,9 +371,10 @@ export async function runInteractiveSetup(
       prompter.write("Setup canceled. The existing OpenCode permission was not changed.\n");
       return { status: "canceled", reason: "permission-change-declined" };
     }
-    if (
-      !(await prompter.confirm("Save the helper config and register the OpenCode plugin?", false))
-    ) {
+    const finalQuestion = registrationPlan
+      ? "Save the helper config and register the OpenCode plugin?"
+      : "Save only the helper config?";
+    if (!(await prompter.confirm(finalQuestion, false))) {
       prompter.write("Setup canceled. No configuration was changed.\n");
       return { status: "canceled", reason: "final-confirmation-declined" };
     }
@@ -384,26 +391,31 @@ export async function runInteractiveSetup(
         expectedRevision: state.revision,
       });
     }
-    let registration: Awaited<ReturnType<typeof registerOpenCodePlugin>>;
-    try {
-      registration = await services.registerPlugin(permission, {
-        ...registrationLocation,
-        expectedRevision: registrationPlan.revision,
-        allowPermissionChange: registrationPlan.permissionChange,
-      });
-    } catch (error) {
-      const detail = error instanceof AppError ? error.message : "Unexpected registration failure.";
-      throw new AppError(
-        "CONFIGURATION",
-        `Helper configuration ${changed ? "was saved" : "is unchanged"}, but OpenCode registration failed: ${detail}`,
-        { cause: error, stage: "opencode-registration" },
-      );
+    let registration: Awaited<ReturnType<typeof registerOpenCodePlugin>> | undefined;
+    if (registrationPlan) {
+      try {
+        registration = await services.registerPlugin(permission, {
+          ...registrationLocation,
+          expectedRevision: registrationPlan.revision,
+          allowPermissionChange: registrationPlan.permissionChange,
+        });
+      } catch (error) {
+        const detail =
+          error instanceof AppError ? error.message : "Unexpected registration failure.";
+        throw new AppError(
+          "CONFIGURATION",
+          `Helper configuration ${changed ? "was saved" : "is unchanged"}, but OpenCode registration failed: ${detail}`,
+          { cause: error, stage: "opencode-registration" },
+        );
+      }
     }
     prompter.write(
       `${changed ? "Configuration saved" : "Configuration unchanged"}: ${state.path}\n` +
-        `OpenCode plugin ${registration.status}: ${registration.configPath}\n` +
-        "Restart OpenCode, then run opencode-vision-helper doctor. " +
-        "Project or agent permissions can override this global setting.\n",
+        (registration
+          ? `OpenCode plugin ${registration.status}: ${registration.configPath}\n` +
+            "Restart OpenCode, then run opencode-vision-helper doctor. " +
+            "Project or agent permissions can override this global setting.\n"
+          : "OpenCode registration was skipped. Install only one ownership-checked legacy wrapper before restarting OpenCode.\n"),
     );
     return {
       status: "configured",
@@ -412,9 +424,9 @@ export async function runInteractiveSetup(
       consentReused,
       permission,
       model,
-      openCodeRegistration: registration.status,
-      registrationChanged: registration.changed,
-      openCodeConfigPath: registration.configPath,
+      openCodeRegistration: registration?.status ?? "skipped",
+      registrationChanged: registration?.changed ?? false,
+      ...(registration ? { openCodeConfigPath: registration.configPath } : {}),
     };
   } finally {
     prompter.close();

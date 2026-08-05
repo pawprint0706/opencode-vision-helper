@@ -10,6 +10,11 @@ import {
   MAX_ANALYSIS_TIMEOUT_MS,
   MIN_ANALYSIS_TIMEOUT_MS,
 } from "./abort.js";
+import {
+  hasValidCloudUploadConsent,
+  readHelperConfig,
+  resolveConfiguredVisionModel,
+} from "./config.js";
 import { AppError, asAppError } from "./errors.js";
 import { prepareImage } from "./imaging.js";
 import { parseModelRef } from "./model.js";
@@ -32,6 +37,7 @@ export type CliServices = {
   analyzeWithOpenCode: typeof analyzeWithOpenCode;
   doctor: typeof doctor;
   runSetup: typeof runInteractiveSetup;
+  readConfig: typeof readHelperConfig;
 };
 
 const DEFAULT_SERVICES: CliServices = {
@@ -39,6 +45,7 @@ const DEFAULT_SERVICES: CliServices = {
   analyzeWithOpenCode,
   doctor,
   runSetup: runInteractiveSetup,
+  readConfig: readHelperConfig,
 };
 
 const HELP = `opencode-vision-helper
@@ -48,10 +55,10 @@ Usage:
                                       [--json] [--allow-upload] [--keep-session]
                                       [--timeout <seconds>]
   opencode-vision-helper doctor [--json]
-  opencode-vision-helper setup
+  opencode-vision-helper setup [--config-only]
 
 Only opencode-go/<model> and opencode/<model> are supported.
-Live analysis requires --allow-upload because the selected image is sent to OpenCode Go/Zen.
+Live analysis requires setup consent or --allow-upload because the selected image is sent to OpenCode Go/Zen.
 The default analysis timeout is ${DEFAULT_ANALYSIS_TIMEOUT_MS / 1_000} seconds.
 `;
 
@@ -115,13 +122,22 @@ function printJson(value: unknown, stream: NodeJS.WritableStream = process.stdou
 
 async function runAnalyze(args: string[], services: CliServices): Promise<number> {
   const parsed = parseAnalyzeArgs(args);
-  if (!parsed.allowUpload) {
+  const overrideModel = parsed.model ?? process.env.OPENCODE_VISION_MODEL;
+  const config =
+    parsed.allowUpload && overrideModel !== undefined ? undefined : await services.readConfig();
+  const uploadApproved =
+    parsed.allowUpload || (config !== undefined && hasValidCloudUploadConsent(config));
+  if (!uploadApproved) {
     throw new AppError(
-      "UPLOAD_NOT_APPROVED",
-      "Live analysis is disabled until --allow-upload is provided.",
+      "CONSENT_REQUIRED",
+      "Live analysis requires valid setup consent or --allow-upload for this invocation.",
     );
   }
-  const model = parsed.model ?? process.env.OPENCODE_VISION_MODEL;
+  const model = resolveConfiguredVisionModel(
+    config,
+    parsed.model,
+    process.env.OPENCODE_VISION_MODEL,
+  );
   if (!model) {
     throw new AppError("CONFIGURATION", "No vision model was selected.");
   }
@@ -142,7 +158,7 @@ async function runAnalyze(args: string[], services: CliServices): Promise<number
       model,
       prompt: parsed.prompt ?? DEFAULT_PROMPT,
       structured,
-      uploadApproved: parsed.allowUpload,
+      uploadApproved,
       keepSession: parsed.keepSession,
       signal: abortScope.signal,
     });
@@ -192,10 +208,11 @@ async function runDoctor(args: string[], services: CliServices): Promise<number>
 }
 
 async function runSetup(args: string[], services: CliServices): Promise<number> {
-  if (args.length > 0) {
+  const configOnly = args.length === 1 && args[0] === "--config-only";
+  if (args.length > 0 && !configOnly) {
     throw new AppError("BAD_REQUEST", `Unknown option: ${args[0]}`);
   }
-  const result = await services.runSetup();
+  const result = await services.runSetup(configOnly ? { registerOpenCode: false } : undefined);
   return result.status === "configured" ? 0 : 1;
 }
 
