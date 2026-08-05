@@ -82,12 +82,20 @@ opencode-vision-helper analyze <image> [--prompt <text>] [--model <provider/mode
                                       [--timeout <seconds>]
 opencode-vision-helper doctor
 opencode-vision-helper setup [--config-only]
+opencode-vision-helper config show [--json]
+opencode-vision-helper config reset-consent [--json]
 ```
 
 Only `opencode-go/<model-id>` and `opencode/<model-id>` model identifiers are
 in scope. All OpenCode tools and session permissions are disabled for the
 analysis session. MCP, screen capture, desktop control, and arbitrary provider
 URLs are not part of v1.
+
+`config show` reports only the helper-owned consent, permission, and model settings.
+`config reset-consent` atomically changes only consent to `false`; it preserves the
+selected model and permission. After reset, CLI analysis needs the one-invocation
+`--allow-upload` flag, while the native tool remains disabled until setup is run
+again.
 
 The native tool can use an explicit local path or, when `image` is omitted, the
 sole image attached to the current OpenCode user message. Local/file URL

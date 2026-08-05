@@ -47,6 +47,13 @@ export type WriteHelperConfigOptions = HelperConfigLocationOptions & {
   expectedRevision: string | null;
 };
 
+export type ResetCloudUploadConsentResult = {
+  status: "reset" | "already-reset";
+  changed: boolean;
+  path: string;
+  config: HelperConfig;
+};
+
 function configurationError(message: string, cause?: unknown): AppError {
   return new AppError("CONFIGURATION", message, cause === undefined ? undefined : { cause });
 }
@@ -314,4 +321,38 @@ export async function writeHelperConfig(
     await rm(temporaryPath, { force: true }).catch(() => undefined);
     await releaseLock(lockPath, token);
   }
+}
+
+export async function resetCloudUploadConsent(
+  options: HelperConfigLocationOptions = {},
+): Promise<ResetCloudUploadConsentResult> {
+  const state = await readHelperConfigState(options);
+  if (!state.config) {
+    throw configurationError("No helper configuration exists; run setup first.");
+  }
+  if (!state.config.consent.cloudUpload) {
+    return {
+      status: "already-reset",
+      changed: false,
+      path: state.path,
+      config: state.config,
+    };
+  }
+  const config: HelperConfig = {
+    ...state.config,
+    consent: { cloudUpload: false },
+  };
+  const written = await writeHelperConfig(config, {
+    ...options,
+    expectedRevision: state.revision,
+  });
+  if (!written.config) {
+    throw configurationError("The helper configuration was not available after consent reset.");
+  }
+  return {
+    status: "reset",
+    changed: true,
+    path: written.path,
+    config: written.config,
+  };
 }

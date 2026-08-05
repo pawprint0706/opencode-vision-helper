@@ -13,6 +13,8 @@ import {
 import {
   hasValidCloudUploadConsent,
   readHelperConfig,
+  readHelperConfigState,
+  resetCloudUploadConsent,
   resolveConfiguredVisionModel,
 } from "./config.js";
 import { diagnoseInstallation } from "./diagnostics.js";
@@ -39,6 +41,8 @@ export type CliServices = {
   doctor: typeof diagnoseInstallation;
   runSetup: typeof runInteractiveSetup;
   readConfig: typeof readHelperConfig;
+  readConfigState: typeof readHelperConfigState;
+  resetConsent: typeof resetCloudUploadConsent;
 };
 
 const DEFAULT_SERVICES: CliServices = {
@@ -47,6 +51,8 @@ const DEFAULT_SERVICES: CliServices = {
   doctor: diagnoseInstallation,
   runSetup: runInteractiveSetup,
   readConfig: readHelperConfig,
+  readConfigState: readHelperConfigState,
+  resetConsent: resetCloudUploadConsent,
 };
 
 const HELP = `opencode-vision-helper
@@ -57,6 +63,8 @@ Usage:
                                       [--timeout <seconds>]
   opencode-vision-helper doctor [--json]
   opencode-vision-helper setup [--config-only]
+  opencode-vision-helper config show [--json]
+  opencode-vision-helper config reset-consent [--json]
 
 Only opencode-go/<model> and opencode/<model> are supported.
 Live analysis requires setup consent or --allow-upload because the selected image is sent to OpenCode Go/Zen.
@@ -217,6 +225,75 @@ async function runSetup(args: string[], services: CliServices): Promise<number> 
   return result.status === "configured" ? 0 : 1;
 }
 
+function parseOptionalJson(args: string[]): boolean {
+  const unknown = args.filter((arg) => arg !== "--json");
+  if (unknown.length > 0) {
+    throw new AppError("BAD_REQUEST", `Unknown option: ${unknown[0]}`);
+  }
+  return args.includes("--json");
+}
+
+async function runConfig(args: string[], services: CliServices): Promise<number> {
+  const action = args[0];
+  const json = parseOptionalJson(args.slice(1));
+  if (action === "show") {
+    const state = await services.readConfigState();
+    if (!state.config) {
+      throw new AppError("CONFIGURATION", "No helper configuration exists; run setup first.");
+    }
+    const consent = state.config.consent;
+    const result = {
+      status: "ok",
+      path: state.path,
+      schema: state.config.schema,
+      cloud_upload_consent: {
+        accepted: consent.cloudUpload,
+        valid: hasValidCloudUploadConsent(state.config),
+        ...(consent.cloudUpload
+          ? {
+              notice_version: consent.noticeVersion,
+              accepted_at: consent.acceptedAt,
+            }
+          : {}),
+      },
+      permission: state.config.openCode.permission,
+      model: state.config.openCode.model,
+    };
+    if (json) {
+      printJson(result);
+    } else {
+      process.stdout.write(
+        `Helper config: ${result.path}\n` +
+          `Cloud upload consent: ${result.cloud_upload_consent.valid ? "valid" : "not accepted"}\n` +
+          `OpenCode permission: ${result.permission}\n` +
+          `Vision model: ${result.model}\n`,
+      );
+    }
+    return 0;
+  }
+  if (action === "reset-consent") {
+    const result = await services.resetConsent();
+    if (json) {
+      printJson({
+        status: result.status,
+        changed: result.changed,
+        path: result.path,
+        cloud_upload_consent: false,
+      });
+    } else {
+      process.stdout.write(
+        `Cloud-upload consent ${result.changed ? "reset" : "already reset"}: ${result.path}\n` +
+          "CLI analysis now requires --allow-upload; the native tool fails until setup is run again.\n",
+      );
+    }
+    return 0;
+  }
+  throw new AppError(
+    "BAD_REQUEST",
+    action ? `Unknown config action: ${action}` : "config requires an action.",
+  );
+}
+
 export async function main(
   args = process.argv.slice(2),
   services: CliServices = DEFAULT_SERVICES,
@@ -234,6 +311,9 @@ export async function main(
   }
   if (command === "setup") {
     return runSetup(args.slice(1), services);
+  }
+  if (command === "config") {
+    return runConfig(args.slice(1), services);
   }
   throw new AppError("BAD_REQUEST", `Unknown command: ${command}`);
 }

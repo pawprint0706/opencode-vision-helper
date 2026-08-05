@@ -12,6 +12,7 @@ import {
   parseHelperConfig,
   readHelperConfig,
   readHelperConfigState,
+  resetCloudUploadConsent,
   resolveConfiguredVisionModel,
   resolveHelperConfigPath,
   writeHelperConfig,
@@ -202,5 +203,36 @@ describe("helper configuration", () => {
       writeHelperConfig(acceptedConfig(), { configPath, expectedRevision: null }),
     ).rejects.toThrow(/already in progress/);
     expect(await readFile(lockPath, "utf8")).toBe("another writer\n");
+  });
+
+  it("resets only cloud-upload consent and is idempotent", async () => {
+    const configPath = join(temporaryRoot, "config", "config.json");
+    await writeHelperConfig(acceptedConfig({ permission: "allow", model: "opencode/vision" }), {
+      configPath,
+      expectedRevision: null,
+    });
+
+    await expect(resetCloudUploadConsent({ configPath })).resolves.toMatchObject({
+      status: "reset",
+      changed: true,
+      config: {
+        consent: { cloudUpload: false },
+        openCode: { permission: "allow", model: "opencode/vision" },
+      },
+    });
+    const content = await readFile(configPath, "utf8");
+    await expect(resetCloudUploadConsent({ configPath })).resolves.toMatchObject({
+      status: "already-reset",
+      changed: false,
+    });
+    expect(await readFile(configPath, "utf8")).toBe(content);
+  });
+
+  it("does not create a config when consent reset is requested before setup", async () => {
+    const configPath = join(temporaryRoot, "missing", "config.json");
+    await expect(resetCloudUploadConsent({ configPath })).rejects.toMatchObject({
+      code: "CONFIGURATION",
+    });
+    await expect(readFile(configPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

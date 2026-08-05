@@ -142,6 +142,17 @@ function services(overrides: Partial<CliServices> = {}): CliServices {
       openCodeConfigPath: "opencode.json",
     }),
     readConfig: async () => acceptedConfig(),
+    readConfigState: async () => ({
+      path: "config.json",
+      revision: "revision",
+      config: acceptedConfig(),
+    }),
+    resetConsent: async () => ({
+      status: "reset",
+      changed: true,
+      path: "config.json",
+      config: { ...acceptedConfig(), consent: { cloudUpload: false } },
+    }),
     ...overrides,
   };
 }
@@ -216,6 +227,9 @@ describe("CLI process contract", () => {
     { args: ["doctor", "--unknown"], code: "BAD_REQUEST" },
     { args: ["setup"], code: "BAD_REQUEST" },
     { args: ["setup", "--unknown"], code: "BAD_REQUEST" },
+    { args: ["config", "show"], code: "CONFIGURATION" },
+    { args: ["config", "unknown"], code: "BAD_REQUEST" },
+    { args: ["config", "show", "--unknown"], code: "BAD_REQUEST" },
   ])("prints $code as JSON on stderr and exits with failure", async ({ args, code }) => {
     const result = await runCli(args);
 
@@ -261,6 +275,37 @@ describe("CLI process contract", () => {
 
     await expect(main(["setup", "--config-only"], services({ runSetup }))).resolves.toBe(0);
     expect(runSetup).toHaveBeenCalledWith({ registerOpenCode: false });
+  });
+
+  it("shows the saved config without exposing unrelated data", async () => {
+    const result = await captureMain(["config", "show", "--json"], services());
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      status: "ok",
+      path: "config.json",
+      schema: 1,
+      cloud_upload_consent: {
+        accepted: true,
+        valid: true,
+        notice_version: 1,
+        accepted_at: "2026-08-05T00:00:00.000Z",
+      },
+      permission: "ask",
+      model: "opencode-go/stored-vision",
+    });
+    expect(result.stderr).toBe("");
+  });
+
+  it("resets consent while reporting the native and one-invocation consequences", async () => {
+    const resetConsent = vi.fn(services().resetConsent);
+    const result = await captureMain(["config", "reset-consent"], services({ resetConsent }));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Cloud-upload consent reset");
+    expect(result.stdout).toContain("CLI analysis now requires --allow-upload");
+    expect(result.stdout).toContain("native tool fails until setup");
+    expect(resetConsent).toHaveBeenCalledOnce();
   });
 
   it("prints a structured human result and cleanup warning on separate streams", async () => {

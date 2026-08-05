@@ -33,6 +33,17 @@ credential contents or calls a billed model. Project and agent permissions may
 override the global value; current OpenCode APIs do not reliably expose whether a
 restart is pending, so that field is reported as `unknown`.
 
+Inspect or withdraw the saved cloud-upload consent with:
+
+```powershell
+opencode-vision-helper config show --json
+opencode-vision-helper config reset-consent
+```
+
+Resetting consent preserves the configured model and OpenCode permission. It does
+not edit OpenCode configuration or unregister the plugin. The native tool then
+returns `CONSENT_REQUIRED` until setup is completed again.
+
 ## Adapter installation
 
 Build this repository first:

@@ -382,7 +382,8 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   - 현재 전역 permission 값과 override 가능성
   - 재시작 필요 여부는 현재 안전하게 판정할 API가 없어 `unknown`으로 명시
 
-- [ ] `config show`, `config reset` 또는 이에 준하는 조회/철회 UX를 추가한다.
+- [x] `config show`와 `config reset-consent`를 추가한다. 동의 철회는 model/permission과
+  OpenCode 등록을 보존하고 helper config의 consent만 원자적으로 `false`로 바꾼다.
 - [x] 설정 및 동의 오류의 remediation 문구를 `setup` 기준으로 갱신한다.
 
 ### P1. OpenCode plugin의 저장 설정 사용

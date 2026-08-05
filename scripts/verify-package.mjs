@@ -97,7 +97,8 @@ try {
         "if (typeof core.parseHelperConfig !== 'function' || " +
         "typeof core.runInteractiveSetup !== 'function' || " +
         "typeof core.registerOpenCodePlugin !== 'function' || " +
-        "typeof core.diagnoseInstallation !== 'function') process.exit(1);",
+        "typeof core.diagnoseInstallation !== 'function' || " +
+        "typeof core.resetCloudUploadConsent !== 'function') process.exit(1);",
     ],
     { cwd: consumer },
   );
