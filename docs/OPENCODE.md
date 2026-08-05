@@ -68,6 +68,22 @@ If ownership is missing or an owned value has drifted, it refuses the removal.
 Restart OpenCode after a successful unregister. `--json` provides a stable result
 for scripts.
 
+There is no helper-config purge command in v1. Unregister first; then, only if the
+saved model and consent should also be erased, remove the exact helper-owned
+`~/.config/opencode-vision-helper/config.json` file separately. OpenCode config and
+authentication files are never purge targets.
+
+## Troubleshooting direct registration
+
+| Symptom | Safe next step |
+| --- | --- |
+| Go/Zen is absent from setup | Connect it through OpenCode `/connect`; do not copy credentials into this project. |
+| Saved model drift appears in doctor | Rerun setup and select a connected model whose input metadata includes images. |
+| Plugin is not visible after setup | Restart OpenCode and inspect `doctor --json`; check project/agent overrides and duplicate legacy-wrapper loading. |
+| Both `opencode.json` and `opencode.jsonc` exist, or JSONC is invalid/read-only | Use setup's manual fallback, consolidate to one intended global config, and preserve unrelated settings. |
+| `ask` has no visible prompt | Confirm helper consent separately with `config show`, then inspect the resolved OpenCode permission and project/agent/managed overrides. Auto mode can follow OpenCode's own approval policy. |
+| Unregister refuses ownership | Leave the files intact until the drift is reviewed. The command never claims an unowned package entry or changed value. |
+
 ## Adapter installation
 
 Build this repository first:

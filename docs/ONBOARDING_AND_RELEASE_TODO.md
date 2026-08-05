@@ -243,22 +243,23 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   publishing 중 선택한다.
 - [ ] CI 배포를 선택하면 GitHub Actions OIDC trusted publisher, 최소 권한,
   provenance, 보호된 release/tag 절차를 설정하고 장기 publish token은 두지 않는다.
-- [ ] semver, changelog, Git tag, GitHub Release, deprecation/rollback 정책을 정한다.
+- [x] semver, changelog, Git tag, GitHub Release, deprecation/rollback 정책을 정한다.
 
 공개 scoped 패키지의 최초 publish에는 public access 지정이 필요하다.
 [npm scoped public package 문서](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)
 
 ### 지원 및 사용자 고지
 
-- [ ] 최소 Node.js 버전과 지원 OpenCode 버전 범위를 확정한다. 현재 Node.js 요구사항은
-  20+, SDK/plugin baseline은 1.18.13이다.
+- [x] 최소 Node.js 버전과 지원 OpenCode 기준을 확정한다. Node.js 요구사항은 20+,
+  테스트한 SDK/plugin baseline은 OpenCode 1.18.13이며 업그레이드 후 doctor 검증을
+  요구한다.
 - [ ] Windows, macOS, Linux에서 전역 npm bin과 OpenCode global config 경로를
   확인한다.
-- [ ] OpenCode Go/Zen 연결은 사용자가 OpenCode `/connect`로 수행해야 한다는 점을
+- [x] OpenCode Go/Zen 연결은 사용자가 OpenCode `/connect`로 수행해야 한다는 점을
   명시한다.
-- [ ] 이미지 전송, 비용, 지원 포맷/크기, 세션 정리, 로그에 포함될 수 있는 정보,
+- [x] 이미지 전송, 비용, 지원 포맷/크기, 세션 정리, 로그에 포함될 수 있는 정보,
   책임 범위를 README 또는 별도 privacy 문서에 적는다.
-- [ ] 사용자 지원 채널, issue template, security reporting 방법을 준비한다.
+- [x] 사용자 지원 채널, issue template, security reporting 방법을 준비한다.
 
 ## 코드 변경 TODO
 
@@ -481,10 +482,10 @@ opencode-vision-helper analyze .\screen.png
 - [x] setup 전에 OpenCode 설치와 `/connect`로 Go 또는 Zen 연결이 필요함을 설명한다.
 - [x] setup 각 질문의 의미와 `ask` 권장 이유, `allow` 위험을 설명한다.
 - [x] CLI 저장/1회 동의와 OpenCode native permission이 별개임을 설명한다.
-- [ ] config 파일 위치, model precedence, 재설정, 동의 철회, uninstall/purge 방법을
+- [x] config 파일 위치, model precedence, 재설정, 동의 철회, uninstall/purge 방법을
   문서화한다.
-- [ ] global 설정은 project/agent 설정에 의해 override될 수 있음을 설명한다.
-- [ ] OpenCode restart, plugin 미표시, provider 미연결, model 사라짐, JSONC 충돌,
+- [x] global 설정은 project/agent 설정에 의해 override될 수 있음을 설명한다.
+- [x] OpenCode restart, plugin 미표시, provider 미연결, model 사라짐, JSONC 충돌,
   권한 prompt 미표시 문제의 troubleshooting을 추가한다.
 - [x] 개발 checkout용 `adapter:install`과 `setup --config-only` 문서를 일반 사용자
   Quick start와 분리한다.
@@ -503,9 +504,9 @@ npm test
 npm run build
 ```
 
-- [ ] `npm pack --dry-run`과 tarball contents를 검토해 source map, test fixture,
+- [x] `npm pack --dry-run`과 tarball contents를 검토해 source map, test fixture,
   개인 경로, 로그, 임시 파일, credential이 포함되지 않았는지 확인한다.
-- [ ] tarball에서 CLI, setup, config, plugin export, install/uninstall을 검증한다.
+- [x] tarball에서 CLI, setup, config, plugin export, install/uninstall을 검증한다.
 - [ ] 최초 publish 전에 version과 changelog를 확정하고 Git tag/commit이 일치하는지
   확인한다.
 - [ ] `npm publish --access public` 또는 승인된 trusted publishing workflow로

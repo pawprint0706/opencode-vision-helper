@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a reproducible opencode-vision-helper defect
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, private images, provider response bodies, or sensitive OpenCode configuration. Use a synthetic image and sanitized output.
+  - type: input
+    id: helper-version
+    attributes:
+      label: Helper version or commit
+      placeholder: 0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node.js version, and OpenCode version
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest sanitized reproduction.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include sanitized error codes and messages only.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, private images, provider response bodies, and sensitive configuration.
+          required: true
+        - label: This is not a vulnerability report; security issues use the private advisory link in SECURITY.md.
+          required: true

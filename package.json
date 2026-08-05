@@ -50,6 +50,8 @@
     "scripts/install.mjs",
     "scripts/uninstall.mjs",
     "README.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
@@ -64,7 +66,8 @@
     "test:live": "npm run build && node scripts/live-smoke.mjs",
     "test:watch": "vitest",
     "verify:package": "node scripts/verify-package.mjs",
-    "verify": "npm run check && npm test && npm run build && npm run verify:package"
+    "verify": "npm run check && npm test && npm run build && npm run verify:package",
+    "prepublishOnly": "npm run verify"
   },
   "dependencies": {
     "@opencode-ai/plugin": "1.18.13",

@@ -43,6 +43,20 @@ try {
   const packResult = JSON.parse(packed.stdout);
   const artifacts = Array.isArray(packResult) ? packResult : Object.values(packResult);
   assert.equal(artifacts.length, 1, "npm pack must produce exactly one artifact");
+  const packedFiles = artifacts[0].files.map((file) => file.path);
+  assert.ok(packedFiles.includes("README.md"));
+  assert.ok(packedFiles.includes("SECURITY.md"));
+  assert.ok(packedFiles.includes("CHANGELOG.md"));
+  assert.equal(
+    packedFiles.some((path) => /^(?:src|tests|docs|\.github)\//u.test(path)),
+    false,
+    "source, tests, internal docs, and GitHub metadata must not be published",
+  );
+  assert.equal(
+    packedFiles.some((path) => /(?:fixture|\.log$|\.tmp$|credential|auth\.json)/iu.test(path)),
+    false,
+    "fixtures, logs, temporary files, and credential-shaped files must not be published",
+  );
   const tarball = resolve(temporaryRoot, artifacts[0].filename);
   const consumer = join(temporaryRoot, "consumer with space-한글");
   await mkdir(consumer, { recursive: true });
@@ -76,6 +90,16 @@ try {
   assert.equal(installedManifest.name, "@pawprint0706/opencode-vision-helper");
   assert.equal(installedManifest.publishConfig?.access, "public");
   assert.equal(installedManifest.scripts?.postinstall, undefined);
+  for (const path of packedFiles.filter((path) => path.endsWith(".js.map"))) {
+    const sourceMap = JSON.parse(await readFile(join(installedPackage, path), "utf8"));
+    assert.equal(sourceMap.sourcesContent, undefined, `${path} must not embed source content`);
+    assert.ok(
+      sourceMap.sources.every(
+        (source) => source.startsWith("../src/") && !/^[A-Za-z]:|^\//u.test(source),
+      ),
+      `${path} must contain only relative project source paths`,
+    );
+  }
   const cliShim = join(
     consumer,
     "node_modules",
@@ -105,6 +129,81 @@ try {
     ],
     { cwd: consumer },
   );
+
+  const setupHome = join(temporaryRoot, "setup lifecycle home");
+  const setupEnvironment = {
+    ...process.env,
+    HOME: setupHome,
+    USERPROFILE: setupHome,
+    VISION_HELPER_SETUP_HOME: setupHome,
+    NO_COLOR: "1",
+  };
+  await run(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      "import assert from 'node:assert/strict'; " +
+        "const core = await import('@pawprint0706/opencode-vision-helper'); " +
+        "const userHome = process.env.VISION_HELPER_SETUP_HOME; " +
+        "const confirmations = [true, true]; " +
+        "const selections = ['ask', 'opencode-go', 'opencode-go/vision']; " +
+        "const prompter = { interactive: true, write() {}, " +
+        "async confirm() { return confirmations.shift(); }, " +
+        "async select() { return selections.shift(); }, close() {} }; " +
+        "const services = { " +
+        "doctor: async () => ({ opencode_version: '1.18.13', connected_providers: ['opencode-go'], image_models: ['opencode-go/vision'], ok: true }), " +
+        "readConfigState: core.readHelperConfigState, writeConfig: core.writeHelperConfig, " +
+        "inspectRegistration: core.inspectOpenCodeRegistration, " +
+        "createManualRegistrationPlan: core.createOpenCodeManualRegistrationPlan, " +
+        "verifyManualRegistration: core.verifyOpenCodeManualRegistration, " +
+        "registerPlugin: core.registerOpenCodePlugin, " +
+        "now: () => new Date('2026-08-05T00:00:00.000Z') }; " +
+        "const result = await core.runInteractiveSetup({ configLocation: { userHome }, registrationLocation: { userHome }, prompter, services }); " +
+        "assert.equal(result.status, 'configured'); " +
+        "assert.equal(result.openCodeRegistration, 'registered');",
+    ],
+    { cwd: consumer, env: setupEnvironment },
+  );
+  const shownSetup = await runInstalledCli(["config", "show", "--json"], {
+    env: setupEnvironment,
+  });
+  assert.deepEqual(JSON.parse(shownSetup.stdout), {
+    status: "ok",
+    path: resolve(setupHome, ".config", "opencode-vision-helper", "config.json"),
+    schema: 1,
+    cloud_upload_consent: {
+      accepted: true,
+      valid: true,
+      notice_version: 1,
+      accepted_at: "2026-08-05T00:00:00.000Z",
+    },
+    permission: "ask",
+    model: "opencode-go/vision",
+  });
+  const directUnregistered = await runInstalledCli(["unregister", "--json"], {
+    env: setupEnvironment,
+  });
+  assert.deepEqual(JSON.parse(directUnregistered.stdout), {
+    status: "unregistered",
+    changed: true,
+    config_path: resolve(setupHome, ".config", "opencode", "opencode.json"),
+    manifest_path: resolve(
+      setupHome,
+      ".config",
+      "opencode-vision-helper",
+      "opencode-registration.json",
+    ),
+    helper_config_preserved: true,
+  });
+  const shownAfterUnregister = await runInstalledCli(["config", "show", "--json"], {
+    env: setupEnvironment,
+  });
+  assert.deepEqual(JSON.parse(shownAfterUnregister.stdout), JSON.parse(shownSetup.stdout));
+  const directConfig = JSON.parse(
+    await readFile(resolve(setupHome, ".config", "opencode", "opencode.json"), "utf8"),
+  );
+  assert.deepEqual(directConfig, { plugin: [], permission: {} });
 
   const fakeBin = join(temporaryRoot, "fake opencode bin");
   const fakeServer = join(packageRoot, "tests", "fixtures", "fake-opencode.mjs");

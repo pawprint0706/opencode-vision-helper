@@ -18,13 +18,22 @@ The gate performs:
 - unit, process-contract, generated-SDK HTTP, cancellation, path, and installer tests
 - package build
 - real `npm pack`, clean temporary-consumer installation, plugin import, generated
-  CLI shim presence, installed CLI execution, fake-OpenCode structured analysis and
-  timeout, and exact adapter install/uninstall lifecycle checks
+  CLI shim presence, installed CLI execution, fake setup/config/direct-unregister
+  lifecycle, fake-OpenCode structured analysis and timeout, and exact legacy adapter
+  install/uninstall lifecycle checks
 
 The fake server binds only to `127.0.0.1`. The temporary consumer may contact the npm
 registry to resolve the packed artifact's declared dependencies. The default gate does
 not start the real OpenCode executable, inspect credentials, contact a model provider,
 or upload an image.
+
+The 2026-08-05 `npm pack --dry-run --json` review confirmed the `files` allowlist
+excludes source, tests, fixtures, internal docs, GitHub metadata, logs, temporary
+files, and credential-shaped files. Runtime source maps are retained for debugging;
+the package verifier requires relative `../src/` references and rejects embedded
+`sourcesContent` or absolute source paths. README, license, changelog, and security
+policy are included. These content invariants now run in `verify:package` rather than
+remaining a one-time manual observation.
 
 ## Requirement evidence
 

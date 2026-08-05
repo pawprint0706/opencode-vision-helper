@@ -56,6 +56,9 @@ after approval and prints the exact target paths and mergeable snippet. It repor
 setup as incomplete until the user confirms the manual merge and a read-only check
 finds the exact package and permission in one config with no legacy-wrapper duplicate.
 
+Node.js 20 or newer is required. OpenCode 1.18.13 is the tested SDK/plugin baseline;
+run `doctor` after OpenCode upgrades and report compatibility regressions.
+
 ## CLI
 
 ```powershell
@@ -110,6 +113,10 @@ comments are preserved. The helper config, selected model, and cloud-upload cons
 remain saved. If an owned value has changed or a direct plugin entry has no ownership
 manifest, removal stops without claiming or deleting it. Restart OpenCode afterward,
 then run `npm uninstall -g @pawprint0706/opencode-vision-helper` if desired.
+There is no purge command in v1. After unregistering, you may separately delete the
+exact helper-owned `~/.config/opencode-vision-helper/config.json` file if you also
+want to erase the saved consent and model. Never remove OpenCode's config or auth
+files as part of that cleanup.
 
 The native tool can use an explicit local path or, when `image` is omitted, the
 sole image attached to the current OpenCode user message. Local/file URL
@@ -130,6 +137,36 @@ and remove its temporary OpenCode session. If analysis succeeds but session
 deletion fails, the result includes the retained session ID and a cleanup warning.
 `doctor` uses the same default time bound and supports `Ctrl+C`, but never uploads
 an image or starts a billed model prompt.
+
+## Data handling and limits
+
+Setup and doctor do not upload images or start billed model prompts. Analysis reads
+only the selected image, normalizes it locally, and sends that normalized image plus
+the prompt to the selected OpenCode Go or Zen cloud model. Provider charges and data
+retention policies may apply. The helper stores only versioned consent, the selected
+permission, and the model ID; OpenCode remains the credential owner.
+
+PNG, JPEG, and WebP inputs up to 50 MiB and 80 million decoded pixels are accepted.
+Animated and multi-page images are rejected. Images are orientation-corrected and
+scaled to a 1568-pixel long edge by default, then encoded as PNG or JPEG. Temporary
+analysis sessions are deleted on a best-effort basis; a cleanup failure returns the
+session ID and warning, which may also appear in caller-managed logs. Do not submit
+images or prompts containing data you are not authorized to transmit.
+
+## Troubleshooting
+
+| Symptom | Action |
+| --- | --- |
+| Go/Zen is disconnected | Use OpenCode `/connect`, rerun `setup`, then run `doctor --json`. The helper never repairs credentials itself. |
+| The saved model disappeared or lost image capability | Rerun `setup` and select a currently listed image-capable model. |
+| `vision_analyze` is missing | Restart OpenCode, run `doctor --json`, and resolve duplicate direct/legacy registration or a project/agent override. |
+| Setup reports JSONC or two-config ambiguity | Follow the displayed manual fallback, preserve unrelated settings, and consolidate `opencode.json`/`opencode.jsonc` to one intended global file. |
+| An `ask` prompt does not appear | Check saved consent with `config show`, resolved permission with `doctor`, and project/agent/managed overrides. OpenCode auto mode may approve according to its own policy. |
+| `unregister` reports ownership drift | Do not force deletion. Restore the helper-owned value or review and remove only the intended snippet manually. |
+
+For normal defects, use the repository's [issue tracker](https://github.com/pawprint0706/opencode-vision-helper/issues).
+Report vulnerabilities through the private process in [SECURITY.md](SECURITY.md),
+not a public issue.
 
 ## Development
 
@@ -183,6 +220,8 @@ See [docs/OPENCODE.md](docs/OPENCODE.md) for adapter lifecycle and permission
 examples for the native tool.
 See [docs/VALIDATION.md](docs/VALIDATION.md) for automated evidence and the explicitly
 authorized live-release checklist.
+See [docs/RELEASING.md](docs/RELEASING.md) for the version, tag, registry, provenance,
+and post-publication process.
 
 ## Provenance
 
