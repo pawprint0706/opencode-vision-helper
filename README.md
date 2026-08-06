@@ -1,5 +1,7 @@
 # opencode-vision-helper
 
+**[English](README.md) · [한국어](README.ko.md)**
+
 An OpenCode-native vision fallback for models that cannot inspect local
 images. It preprocesses one existing image and delegates analysis to an
 image-capable OpenCode Go or Zen model through the OpenCode SDK.
