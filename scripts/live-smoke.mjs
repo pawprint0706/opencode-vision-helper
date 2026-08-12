@@ -21,12 +21,18 @@ function parseArgs(args) {
       options.allowLive = true;
       continue;
     }
-    if (argument === "--go-model" || argument === "--zen-model") {
+    if (argument === "--go-model" || argument === "--zen-model" || argument === "--ollama-model") {
       const value = args[index + 1];
       if (!value || value.startsWith("--")) {
         throw new Error(`${argument} requires a value.`);
       }
-      options[argument === "--go-model" ? "goModel" : "zenModel"] = value;
+      options[
+        argument === "--go-model"
+          ? "goModel"
+          : argument === "--zen-model"
+            ? "zenModel"
+            : "ollamaModel"
+      ] = value;
       index += 1;
       continue;
     }
@@ -42,6 +48,9 @@ function parseArgs(args) {
   }
   if (!options.zenModel?.startsWith("opencode/")) {
     throw new Error("--zen-model must use the opencode/<id> prefix.");
+  }
+  if (options.ollamaModel && !options.ollamaModel.startsWith("ollama-cloud/")) {
+    throw new Error("--ollama-model must use the ollama-cloud/<id> prefix.");
   }
   return options;
 }
@@ -66,6 +75,15 @@ async function analyze(imagePath, model) {
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.status, "ok");
   assert.equal(parsed.model, model);
+  if (model.startsWith("ollama-cloud/")) {
+    assert.equal(typeof parsed.text, "string");
+    assert.ok(parsed.text.trim().length > 0);
+    return {
+      model: parsed.model,
+      cost: parsed.cost,
+      text: parsed.text.slice(0, 120),
+    };
+  }
   assert.equal(typeof parsed.report?.summary, "string");
   assert.ok(Array.isArray(parsed.report?.issues));
   return {
@@ -82,7 +100,11 @@ try {
   const imagePath = join(temporaryRoot, "synthetic-ui.png");
   await createSyntheticUiFixture(imagePath);
   const results = [];
-  for (const model of [options.goModel, options.zenModel]) {
+  const models = [options.goModel, options.zenModel];
+  if (options.ollamaModel) {
+    models.push(options.ollamaModel);
+  }
+  for (const model of models) {
     results.push(await analyze(imagePath, model));
   }
   process.stdout.write(

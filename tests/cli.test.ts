@@ -344,7 +344,7 @@ describe("CLI process contract", () => {
       cloud_upload_consent: {
         accepted: true,
         valid: true,
-        notice_version: 1,
+        notice_version: CLOUD_UPLOAD_NOTICE_VERSION,
         accepted_at: "2026-08-05T00:00:00.000Z",
       },
       permission: "ask",

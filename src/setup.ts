@@ -207,7 +207,13 @@ export class TerminalSetupPrompter implements SetupPrompter {
 }
 
 function providerLabel(providerID: AllowedProviderId): string {
-  return providerID === "opencode-go" ? "OpenCode Go" : "OpenCode Zen";
+  if (providerID === "opencode-go") {
+    return "OpenCode Go";
+  }
+  if (providerID === "opencode") {
+    return "OpenCode Zen";
+  }
+  return "Ollama Cloud";
 }
 
 function providerFromModel(model: string): AllowedProviderId | undefined {
@@ -258,7 +264,7 @@ export async function runInteractiveSetup(
     if (connectedProviders.length === 0) {
       throw new AppError(
         "PROVIDER_NOT_CONNECTED",
-        "OpenCode Go or Zen is not connected. Use /connect in OpenCode, then rerun setup.",
+        "OpenCode Go, Zen, or Ollama Cloud is not connected. Use /connect in OpenCode, then rerun setup.",
       );
     }
     const providersWithModels = connectedProviders.filter(
@@ -267,7 +273,7 @@ export async function runInteractiveSetup(
     if (providersWithModels.length === 0) {
       throw new AppError(
         "MODEL_NOT_FOUND",
-        "No connected OpenCode Go or Zen model currently accepts image input.",
+        "No connected OpenCode Go, Zen, or Ollama Cloud model currently accepts image input.",
       );
     }
 
@@ -283,7 +289,7 @@ export async function runInteractiveSetup(
     } else {
       prompter.write(
         "\nCloud upload notice\n" +
-          "The image you choose will be sent to an OpenCode Go or Zen cloud model.\n" +
+          "The image you choose will be sent to an OpenCode Go, Zen, or Ollama Cloud model.\n" +
           "Provider costs and data-retention policies may apply. Image contents are untrusted,\n" +
           "and every tool is disabled in the isolated analysis session. Setup itself sends no image.\n",
       );

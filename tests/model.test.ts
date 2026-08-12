@@ -7,6 +7,7 @@ import {
   parseModelRef,
   requireNonVisionCaller,
   selectVisionModel,
+  supportsStructuredOutput,
 } from "../src/model.js";
 
 function provider(id: string, image: boolean): Provider {
@@ -55,9 +56,13 @@ function thrownAppError(run: () => unknown): AppError {
 }
 
 describe("model selection", () => {
-  it("accepts only OpenCode Go and Zen model identifiers", () => {
+  it("accepts only OpenCode Go, Zen, and Ollama Cloud model identifiers", () => {
     expect(parseModelRef("opencode-go/vision")).toEqual({
       providerID: "opencode-go",
+      modelID: "vision",
+    });
+    expect(parseModelRef("ollama-cloud/vision")).toEqual({
+      providerID: "ollama-cloud",
       modelID: "vision",
     });
     expect(() => parseModelRef("openai/gpt-5")).toThrow(AppError);
@@ -102,9 +107,20 @@ describe("model selection", () => {
   it("lists only connected image models in allowed providers", () => {
     expect(
       imageModels(
-        [provider("opencode", true), provider("other", true), provider("opencode-go", false)],
-        ["opencode", "other", "opencode-go"],
+        [
+          provider("opencode", true),
+          provider("other", true),
+          provider("opencode-go", false),
+          provider("ollama-cloud", true),
+        ],
+        ["opencode", "other", "opencode-go", "ollama-cloud"],
       ),
-    ).toEqual(["opencode/vision"]);
+    ).toEqual(["ollama-cloud/vision", "opencode/vision"]);
+  });
+
+  it("treats ollama-cloud as text-only for structured output", () => {
+    expect(supportsStructuredOutput("opencode-go")).toBe(true);
+    expect(supportsStructuredOutput("opencode")).toBe(true);
+    expect(supportsStructuredOutput("ollama-cloud")).toBe(false);
   });
 });

@@ -2,8 +2,14 @@ import type { Provider } from "@opencode-ai/sdk/v2";
 
 import { AppError } from "./errors.js";
 
-export const ALLOWED_PROVIDER_IDS = ["opencode-go", "opencode"] as const;
+export const ALLOWED_PROVIDER_IDS = ["opencode-go", "opencode", "ollama-cloud"] as const;
 export type AllowedProviderId = (typeof ALLOWED_PROVIDER_IDS)[number];
+
+export const TEXT_ONLY_PROVIDERS: ReadonlySet<AllowedProviderId> = new Set(["ollama-cloud"]);
+
+export function supportsStructuredOutput(providerID: AllowedProviderId): boolean {
+  return !TEXT_ONLY_PROVIDERS.has(providerID);
+}
 
 export type ModelRef = {
   providerID: AllowedProviderId;
@@ -21,7 +27,7 @@ export function parseModelRef(value: string): ModelRef {
   ) {
     throw new AppError(
       "CONFIGURATION",
-      `Unsupported model '${value}'. Expected opencode-go/<id> or opencode/<id>.`,
+      `Unsupported model '${value}'. Expected opencode-go/<id>, opencode/<id>, or ollama-cloud/<id>.`,
     );
   }
   return { providerID: providerID as AllowedProviderId, modelID };

@@ -8,7 +8,8 @@ These instructions apply to the `opencode-vision-helper` repository.
 
 - This project is an OpenCode-only image-analysis fallback for models without
   reliable image input.
-- OpenCode Go and OpenCode Zen are the only supported provider identities.
+- OpenCode Go, OpenCode Zen, and Ollama Cloud are the only supported provider
+  identities.
 - OpenCode owns provider credentials, model routing, and provider configuration.
   Never copy credentials into this project or modify OpenCode authentication.
 - The public interface remains a CLI. A native OpenCode custom-tool or plugin

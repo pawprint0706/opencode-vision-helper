@@ -4,7 +4,7 @@
 
 An OpenCode-native vision fallback for models that cannot inspect local
 images. It preprocesses one existing image and delegates analysis to an
-image-capable OpenCode Go or Zen model through the OpenCode SDK.
+image-capable OpenCode Go, Zen, or Ollama Cloud model through the OpenCode SDK.
 
 ## Status
 
@@ -23,12 +23,22 @@ macOS, and Linux on every CI run. Interactive
 setup, saved consent/model selection, and ownership-tracked global registration are
 implemented.
 
+Ollama Cloud was added as a third supported provider and live-validated on
+2026-08-13 against OpenCode 1.18.16: `doctor` reported `ollama-cloud` connected
+with eight image-capable models, the guarded live-smoke script delegated analysis
+to `ollama-cloud/gemma4:31b` (text fallback, $0 cost), and direct SDK probes
+confirmed that ollama-cloud does not support json_schema structured output.
+Cross-provider delegation works in any direction (Go/Zen/Ollama Cloud caller to
+Go/Zen/Ollama Cloud vision model). The cloud-upload consent notice was raised to
+version 2 because the recipient set now includes Ollama Cloud; users with v1
+consent must rerun `setup` to re-accept.
+
 The target flow is:
 
 ```text
 OpenCode model without image input
   -> opencode-vision-helper CLI
-  -> isolated OpenCode session using an image-capable Go or Zen model
+  -> isolated OpenCode session using an image-capable Go, Zen, or Ollama Cloud model
   -> text or validated structured report
 ```
 
@@ -39,7 +49,7 @@ URLs.
 ## Quick start
 
 These commands are the intended flow after the first registry publication. Install
-OpenCode first and use its `/connect` flow to connect OpenCode Go or Zen.
+OpenCode first and use its `/connect` flow to connect OpenCode Go, Zen, or Ollama Cloud.
 
 ```powershell
 npm install -g @pawprint0706/opencode-vision-helper
@@ -67,6 +77,7 @@ run `doctor` after OpenCode upgrades and report compatibility regressions.
 opencode-vision-helper doctor --json
 opencode-vision-helper analyze .\screen.png --model opencode-go/<model-id> --allow-upload
 opencode-vision-helper analyze .\screen.png --model opencode/<model-id> --prompt "Read the heading" --allow-upload
+opencode-vision-helper analyze .\screen.png --model ollama-cloud/<model-id> --allow-upload
 ```
 
 The model precedence is `--model`, `OPENCODE_VISION_MODEL`, then the model saved by
@@ -98,10 +109,10 @@ opencode-vision-helper config show [--json]
 opencode-vision-helper config reset-consent [--json]
 ```
 
-Only `opencode-go/<model-id>` and `opencode/<model-id>` model identifiers are
-in scope. All OpenCode tools and session permissions are disabled for the
-analysis session. MCP, screen capture, desktop control, and arbitrary provider
-URLs are not part of v1.
+Only `opencode-go/<model-id>`, `opencode/<model-id>`, and `ollama-cloud/<model-id>`
+model identifiers are in scope. All OpenCode tools and session permissions are
+disabled for the analysis session. MCP, screen capture, desktop control, and
+arbitrary provider URLs are not part of v1.
 
 `config show` reports only the helper-owned consent, permission, and model settings.
 `config reset-consent` atomically changes only consent to `false`; it preserves the
@@ -146,9 +157,10 @@ an image or starts a billed model prompt.
 
 Setup and doctor do not upload images or start billed model prompts. Analysis reads
 only the selected image, normalizes it locally, and sends that normalized image plus
-the prompt to the selected OpenCode Go or Zen cloud model. Provider charges and data
-retention policies may apply. The helper stores only versioned consent, the selected
-permission, and the model ID; OpenCode remains the credential owner.
+the prompt to the selected OpenCode Go, Zen, or Ollama Cloud cloud model. Provider
+charges and data retention policies may apply. The helper stores only versioned
+consent, the selected permission, and the model ID; OpenCode remains the
+credential owner.
 
 PNG, JPEG, and WebP inputs up to 50 MiB and 80 million decoded pixels are accepted.
 Animated and multi-page images are rejected. Images are orientation-corrected and
@@ -161,7 +173,7 @@ images or prompts containing data you are not authorized to transmit.
 
 | Symptom | Action |
 | --- | --- |
-| Go/Zen is disconnected | Use OpenCode `/connect`, rerun `setup`, then run `doctor --json`. The helper never repairs credentials itself. |
+| Go/Zen/Ollama Cloud is disconnected | Use OpenCode `/connect`, rerun `setup`, then run `doctor --json`. The helper never repairs credentials itself. |
 | The saved model disappeared or lost image capability | Rerun `setup` and select a currently listed image-capable model. |
 | `vision_analyze` is missing | Restart OpenCode, run `doctor --json`, and resolve a reported global-direct/project-wrapper duplicate or a project/agent override. |
 | Setup reports JSONC or two-config ambiguity | Follow the displayed manual fallback, preserve unrelated settings, and consolidate `opencode.json`/`opencode.jsonc` to one intended global file. |
@@ -185,13 +197,15 @@ npm run verify
 node .\dist\cli.js --help
 ```
 
-Live smoke testing is opt-in and always requires the explicit guard plus one Go and
-one Zen model. It generates and deletes a synthetic fixture:
+Live smoke testing is opt-in and always requires the explicit guard plus one Go,
+one Zen, and optionally one Ollama Cloud model. It generates and deletes a
+synthetic fixture:
 
 ```powershell
 npm run test:live -- --allow-live `
   --go-model opencode-go/<model-id> `
-  --zen-model opencode/<model-id>
+  --zen-model opencode/<model-id> `
+  --ollama-model ollama-cloud/<model-id>
 ```
 
 After building, save consent and a model without adding the public npm registration,

@@ -5,17 +5,17 @@ import { AppError } from "../src/errors.js";
 import type { PreparedImage } from "../src/imaging.js";
 import { analyzeWithClient, doctorWithClient } from "../src/opencode.js";
 
-function visionProvider(): Provider {
+function visionProvider(id = "opencode-go"): Provider {
   return {
-    id: "opencode-go",
-    name: "OpenCode Go",
+    id,
+    name: id,
     source: "api",
     env: [],
     options: {},
     models: {
       vision: {
         id: "vision",
-        providerID: "opencode-go",
+        providerID: id,
         api: { id: "test", url: "https://example.invalid", npm: "test" },
         name: "Vision",
         capabilities: {
@@ -55,7 +55,7 @@ type FakeBehavior = {
   deleteError?: unknown;
 };
 
-function fakeClient(structured: boolean, behavior: FakeBehavior = {}) {
+function fakeClient(structured: boolean, behavior: FakeBehavior = {}, providerID = "opencode-go") {
   const calls: Record<string, unknown> = {};
   const client = {
     global: {
@@ -68,9 +68,9 @@ function fakeClient(structured: boolean, behavior: FakeBehavior = {}) {
         }
         return {
           data: {
-            all: [visionProvider()],
+            all: [visionProvider(providerID)],
             default: {},
-            connected: ["opencode-go"],
+            connected: [providerID],
           },
         };
       },
@@ -122,6 +122,16 @@ describe("OpenCode SDK contract", () => {
       opencode_version: "1.18.12",
       connected_providers: ["opencode-go"],
       image_models: ["opencode-go/vision"],
+      ok: true,
+    });
+  });
+
+  it("reports connected Ollama Cloud image models", async () => {
+    const { client } = fakeClient(true, {}, "ollama-cloud");
+    await expect(doctorWithClient(client, "C:\\project")).resolves.toEqual({
+      opencode_version: "1.18.12",
+      connected_providers: ["ollama-cloud"],
+      image_models: ["ollama-cloud/vision"],
       ok: true,
     });
   });
@@ -186,6 +196,26 @@ describe("OpenCode SDK contract", () => {
       text: "  custom result  ",
     });
     expect(calls.delete).toBeUndefined();
+  });
+
+  it("falls back to text mode for Ollama Cloud even when structured is requested", async () => {
+    const { calls, client } = fakeClient(false, {}, "ollama-cloud");
+    const result = await analyzeWithClient(client, {
+      directory: "C:\\project",
+      image,
+      model: "ollama-cloud/vision",
+      prompt: "Inspect the UI.",
+      structured: true,
+      uploadApproved: true,
+    });
+    expect(result).toEqual({
+      model: "ollama-cloud/vision",
+      cost: 0.001,
+      text: "  custom result  ",
+    });
+    expect(calls.prompt).toMatchObject({
+      format: { type: "text" },
+    });
   });
 
   it("rejects an unapproved core upload before making SDK calls", async () => {

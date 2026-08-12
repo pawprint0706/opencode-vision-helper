@@ -7,7 +7,7 @@ import { AppError } from "./errors.js";
 import { parseModelRef } from "./model.js";
 
 export const HELPER_CONFIG_SCHEMA = 1;
-export const CLOUD_UPLOAD_NOTICE_VERSION = 1;
+export const CLOUD_UPLOAD_NOTICE_VERSION = 2;
 export const HELPER_CONFIG_DIRECTORY = "opencode-vision-helper";
 export const HELPER_CONFIG_FILENAME = "config.json";
 
@@ -117,7 +117,7 @@ function parseOpenCode(value: unknown): HelperConfig["openCode"] {
     parseModelRef(value.model);
   } catch (error) {
     throw configurationError(
-      "The configured vision model is not an OpenCode Go or Zen model.",
+      "The configured vision model is not an OpenCode Go, Zen, or Ollama Cloud model.",
       error,
     );
   }

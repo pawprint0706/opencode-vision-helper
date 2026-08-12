@@ -63,13 +63,13 @@ function dependencies(
   };
 }
 
-function callerClient(imageInput: boolean) {
+function callerClient(imageInput: boolean, providerID = "opencode-go") {
   const message = vi.fn(async () => ({
     data: {
       info: {
         role: "assistant",
         parentID: "user-message",
-        providerID: "opencode-go",
+        providerID,
         modelID: "caller-model",
       },
       parts: [],
@@ -77,10 +77,10 @@ function callerClient(imageInput: boolean) {
   }));
   const list = vi.fn(async () => ({
     data: {
-      connected: ["opencode-go"],
+      connected: [providerID],
       all: [
         {
-          id: "opencode-go",
+          id: providerID,
           models: {
             "caller-model": {
               id: "caller-model",
@@ -276,6 +276,27 @@ describe("vision_analyze native tool", () => {
     await expect(
       definition.execute({ image: "screen.png" }, context(directory).value),
     ).resolves.toMatchObject({ output: "fallback result" });
+    expect(caller.message).toHaveBeenCalledOnce();
+    expect(caller.list).toHaveBeenCalledOnce();
+  });
+
+  it("accepts an Ollama Cloud caller whose metadata disables image input", async () => {
+    const directory = resolve("project");
+    const caller = callerClient(false, "ollama-cloud");
+    const definition = createVisionAnalyzeTool(
+      caller.client,
+      {
+        canonicalize: async (path) => resolve(path),
+        prepareImage: async () => image,
+        analyze: async () => ({ model: "ollama-cloud/vision", text: "ollama result" }),
+        readConfig: async () => acceptedConfig("ollama-cloud/vision"),
+      },
+      { defaultModel: "ollama-cloud/vision" },
+    );
+
+    await expect(
+      definition.execute({ image: "screen.png" }, context(directory).value),
+    ).resolves.toMatchObject({ output: "ollama result" });
     expect(caller.message).toHaveBeenCalledOnce();
     expect(caller.list).toHaveBeenCalledOnce();
   });

@@ -4,7 +4,7 @@
 
 로컬 이미지를 검사할 수 없는 모델을 위한 OpenCode 네이티브 비전 폴백입니다.
 기존 이미지 한 장을 전처리한 뒤, OpenCode SDK를 통해 이미지 입력이 가능한
-OpenCode Go 또는 Zen 모델에 분석을 위임합니다.
+OpenCode Go, Zen 또는 Ollama Cloud 모델에 분석을 위임합니다.
 
 ## 상태
 
@@ -23,12 +23,22 @@ CLI와 네이티브 `vision_analyze` 플러그인 어댑터가 구현되어 있�
 검사가 포함됩니다. 대화형 설정, 저장된 동의/모델 선택, 소유권이 추적되는
 글로벌 등록도 구현되어 있습니다.
 
+Ollama Cloud가 세 번째 지원 프로바이더로 추가되었고 2026-08-13에 OpenCode
+1.18.16에서 라이브 검증되었습니다. `doctor`가 ollama-cloud 연결과 이미지
+입력 가능 모델 8개를 보고했고, 가드된 라이브 스모크 스크립트가
+`ollama-cloud/gemma4:31b`로 분석을 위임(텍스트 폴백, 비용 0)했으며, 직접 SDK
+프로브로 ollama-cloud가 json_schema 구조화 출력을 지원하지 않음을
+확인했습니다. 교차 프로바이더 위임은 어느 방향으로든(Go/Zen/Ollama Cloud
+호출자 → Go/Zen/Ollama Cloud 비전 모델) 동작합니다. 수신자 집합에 Ollama
+Cloud가 추가되므로 클라우드 업로드 동의 notice가 버전 2로 올라갔고, v1 동의
+사용자는 `setup`을 다시 실행해 재동의해야 합니다.
+
 대상 흐름은 다음과 같습니다.
 
 ```text
 이미지 입력이 없는 OpenCode 모델
   -> opencode-vision-helper CLI
-  -> 이미지 입력이 가능한 Go 또는 Zen 모델을 사용하는 격리된 OpenCode 세션
+  -> 이미지 입력이 가능한 Go, Zen 또는 Ollama Cloud 모델을 사용하는 격리된 OpenCode 세션
   -> 텍스트 또는 검증된 구조화 보고서
 ```
 
@@ -39,7 +49,7 @@ CLI와 네이티브 `vision_analyze` 플러그인 어댑터가 구현되어 있�
 ## 빠른 시작
 
 다음 명령은 최초 레지스트리 게시 이후의 의도된 흐름입니다. 먼저 OpenCode를
-설치하고 `/connect` 흐름으로 OpenCode Go 또는 Zen에 연결하세요.
+설치하고 `/connect` 흐름으로 OpenCode Go, Zen 또는 Ollama Cloud에 연결하세요.
 
 ```powershell
 npm install -g @pawprint0706/opencode-vision-helper
@@ -68,6 +78,7 @@ Node.js 20 이상이 필요합니다. OpenCode 1.18.13이 테스트된 SDK/플�
 opencode-vision-helper doctor --json
 opencode-vision-helper analyze .\screen.png --model opencode-go/<model-id> --allow-upload
 opencode-vision-helper analyze .\screen.png --model opencode/<model-id> --prompt "Read the heading" --allow-upload
+opencode-vision-helper analyze .\screen.png --model ollama-cloud/<model-id> --allow-upload
 ```
 
 모델 우선순위는 `--model`, `OPENCODE_VISION_MODEL`, 그다음 `setup`이 저장한
@@ -98,9 +109,10 @@ opencode-vision-helper config show [--json]
 opencode-vision-helper config reset-consent [--json]
 ```
 
-`opencode-go/<model-id>`와 `opencode/<model-id>` 모델 식별자만 범위에
-포함됩니다. 분석 세션에서는 모든 OpenCode 도구와 세션 권한이 비활성화됩니다.
-MCP, 화면 캡처, 데스크톱 제어, 임의의 프로바이더 URL은 v1에 포함되지 않습니다.
+`opencode-go/<model-id>`, `opencode/<model-id>`, `ollama-cloud/<model-id>` 모델
+식별자만 범위에 포함됩니다. 분석 세션에서는 모든 OpenCode 도구와 세션 권한이
+비활성화됩니다. MCP, 화면 캡처, 데스크톱 제어, 임의의 프로바이더 URL은 v1에
+포함되지 않습니다.
 
 `config show`는 헬퍼가 소유한 동의, 권한, 모델 설정만 보고합니다.
 `config reset-consent`는 동의만 `false`로 원자적으로 변경하며 선택된 모델과
@@ -146,9 +158,9 @@ OpenCode 사용자 메시지에 첨부된 유일한 이미지를 사용합니다
 
 setup과 doctor는 이미지를 업로드하거나 유료 모델 프롬프트를 시작하지 않습니다.
 분석은 선택된 이미지만 읽고 로컬에서 정규화한 후, 정규화된 이미지와 프롬프트를
-선택된 OpenCode Go 또는 Zen 클라우드 모델로 보냅니다. 프로바이더 요금 및 데이터
-보존 정책이 적용될 수 있습니다. 헬퍼는 버전이 지정된 동의, 선택된 권한, 모델
-ID만 저장하며 자격 증명의 소유자는 OpenCode입니다.
+선택된 OpenCode Go, Zen 또는 Ollama Cloud 클라우드 모델로 보냅니다. 프로바이더
+요금 및 데이터 보존 정책이 적용될 수 있습니다. 헬퍼는 버전이 지정된 동의,
+선택된 권한, 모델 ID만 저장하며 자격 증명의 소유자는 OpenCode입니다.
 
 50 MiB 이하, 디코딩된 픽셀 수 8천만 이하인 PNG, JPEG, WebP 입력이 허용됩니다.
 애니메이션 및 다중 페이지 이미지는 거부됩니다. 이미지는 방향이 보정되고
@@ -161,7 +173,7 @@ ID만 저장하며 자격 증명의 소유자는 OpenCode입니다.
 
 | 증상 | 조치 |
 | --- | --- |
-| Go/Zen 연결 해제됨 | OpenCode `/connect` 사용, `setup` 재실행, 그다음 `doctor --json` 실행. 헬퍼는 자격 증명을 스스로 복구하지 않습니다. |
+| Go/Zen/Ollama Cloud 연결 해제됨 | OpenCode `/connect` 사용, `setup` 재실행, 그다음 `doctor --json` 실행. 헬퍼는 자격 증명을 스스로 복구하지 않습니다. |
 | 저장된 모델이 사라지거나 이미지 입력 기능 상실 | `setup`을 다시 실행하고 현재 목록에 있는 이미지 입력 가능 모델을 선택하세요. |
 | `vision_analyze`가 없음 | OpenCode 재시작, `doctor --json` 실행 후 보고된 글로벌 직접/프로젝트 래퍼 중복 또는 프로젝트/에이전트 재정의를 해결하세요. |
 | setup이 JSONC 또는 설정 파일 두 개 모호성 보고 | 표시된 수동 폴백을 따르고, 관련 없는 설정을 보존하며, `opencode.json`/`opencode.jsonc`를 의도한 글로벌 파일 하나로 통합하세요. |
@@ -186,12 +198,14 @@ node .\dist\cli.js --help
 ```
 
 라이브 스모크 테스트는 옵트인이며, 항상 명시적 가드와 Go 모델 하나, Zen 모델
-하나가 필요합니다. 합성 픽스처를 생성하고 삭제합니다.
+하나, 선택적으로 Ollama Cloud 모델 하나가 필요합니다. 합성 픽스처를 생성하고
+삭제합니다.
 
 ```powershell
 npm run test:live -- --allow-live `
   --go-model opencode-go/<model-id> `
-  --zen-model opencode/<model-id>
+  --zen-model opencode/<model-id> `
+  --ollama-model ollama-cloud/<model-id>
 ```
 
 빌드 후 공개 npm 등록을 추가하지 않고 동의와 모델을 저장한 뒤, 현재 프로젝트에

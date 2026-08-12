@@ -10,7 +10,7 @@ registry actions. Never copy npm or OpenCode credentials into this repository.
   tag, and the GitHub Release version identical.
 - Never overwrite a published version or move a published tag. Correct a bad release
   with a new patch version and deprecate the affected version with a clear message.
-- `0.1.0` is the planned initial public release.
+- `0.1.0` was the initial public release; `0.2.0` added Ollama Cloud support.
 
 ## Local release candidate gate
 
@@ -32,7 +32,7 @@ absolute source-map paths, and embedded source content.
 
 Before tagging, replace `Unreleased` in `CHANGELOG.md` with the UTC release date,
 commit that change, rerun the gate, and confirm the worktree is clean. Create and push
-an annotated `v0.1.0` tag only after the exact candidate commit is final.
+an annotated `v<version>` tag only after the exact candidate commit is final.
 
 ## Registry authorization and publication
 
@@ -84,14 +84,15 @@ From a clean environment with no checkout dependency or warm package cache:
 
 ```powershell
 npm view @pawprint0706/opencode-vision-helper version dist-tags engines repository dist.integrity
-npm install -g @pawprint0706/opencode-vision-helper@0.1.0
+npm install -g @pawprint0706/opencode-vision-helper@<version>
 opencode-vision-helper --help
 opencode-vision-helper setup
 opencode-vision-helper doctor --json
 ```
 
 Record the registry version, integrity/provenance, clean-install platform, OpenCode
-version, and synthetic smoke-test result in `docs/VALIDATION.md`. Live Go/Zen analysis
-requires separate explicit authorization. If rollback is necessary, deprecate the bad
-version, publish a corrected patch, and document both; do not unpublish or replace an
-artifact unless npm policy and a genuine security emergency require it.
+version, and synthetic smoke-test result in `docs/VALIDATION.md`. Live Go/Zen/Ollama
+Cloud analysis requires separate explicit authorization. If rollback is necessary,
+deprecate the bad version, publish a corrected patch, and document both; do not
+unpublish or replace an artifact unless npm policy and a genuine security emergency
+require it.

@@ -1,6 +1,6 @@
 {
   "name": "@pawprint0706/opencode-vision-helper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenCode-native vision fallback for models without image input",
   "type": "module",
   "license": "MIT",

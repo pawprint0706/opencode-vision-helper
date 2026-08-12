@@ -60,7 +60,7 @@ function callingModelRef(info: Message): ModelRef {
   ) {
     throw new AppError(
       "CALLER_MODEL_UNVERIFIED",
-      `The calling model '${providerID}/${modelID}' is outside the supported OpenCode Go and Zen providers.`,
+      `The calling model '${providerID}/${modelID}' is outside the supported OpenCode Go, Zen, and Ollama Cloud providers.`,
     );
   }
   return { providerID: providerID as ModelRef["providerID"], modelID };
@@ -165,7 +165,7 @@ export function createVisionAnalyzeTool(
     description:
       "Fallback for a calling model without image input: analyze one local image or the " +
       "current message's sole image attachment with an " +
-      "image-capable OpenCode Go or Zen model. " +
+      "image-capable OpenCode Go, Zen, or Ollama Cloud model. " +
       "Do not call this when you can analyze images directly; execution verifies the calling " +
       "model against OpenCode metadata and refuses image-capable or unverifiable callers. " +
       "This uploads the selected image to the configured cloud provider; use it only when " +
@@ -187,7 +187,7 @@ export function createVisionAnalyzeTool(
         .string()
         .min(1)
         .optional()
-        .describe("Optional opencode-go/<id> or opencode/<id> vision model."),
+        .describe("Optional opencode-go/<id>, opencode/<id>, or ollama-cloud/<id> vision model."),
     },
     async execute(args, context: ToolContext) {
       try {

@@ -9,15 +9,16 @@ npm install -g @pawprint0706/opencode-vision-helper
   -> opencode-vision-helper setup
   -> 클라우드 전송 동의
   -> vision_analyze 권한 ask/allow 선택
-  -> OpenCode Zen 또는 Go와 이미지 입력 가능 모델 선택
+  -> OpenCode Zen, Go 또는 Ollama Cloud와 이미지 입력 가능 모델 선택
   -> 설정 저장 및 OpenCode 전역 플러그인 등록
   -> CLI와 OpenCode의 vision_analyze 도구에서 사용
 ```
 
-`Zen`은 OpenCode provider ID `opencode`, `Go`는 `opencode-go`에 대응한다.
-OpenCode는 계속 인증, provider 연결, 모델 라우팅을 소유한다. 이 패키지는 API
-키나 OpenCode 자격 증명을 읽거나 복사하거나 수정하지 않는다. `setup` 자체는
-이미지를 전송하거나 유료 모델을 호출하지 않아야 한다.
+`Zen`은 OpenCode provider ID `opencode`, `Go`는 `opencode-go`, `Ollama Cloud`는
+`ollama-cloud`에 대응한다. OpenCode는 계속 인증, provider 연결, 모델 라우팅을
+소유한다. 이 패키지는 API 키나 OpenCode 자격 증명을 읽거나 복사하거나
+수정하지 않는다. `setup` 자체는 이미지를 전송하거나 유료 모델을 호출하지
+않아야 한다.
 
 ## 완료 조건
 
@@ -161,8 +162,9 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [x] `config reset-consent`를 공식 철회 명령으로 제공한다. `setup --reset`은 전체
   재설정 UX로 제공할 수 있지만 동의 철회 기능의 유일한 진입점으로 만들지 않는다.
 - [x] 동의 문구 버전 `noticeVersion`과 `acceptedAt`을 저장한다. 현재 코드가 요구하는
-  version과 다르거나 timestamp/schema가 유효하지 않으면 동의가 없는 것으로
-  처리하고 재동의를 받는다.
+  version(2026-08-13 현재 2, 수신자에 Ollama Cloud 포함)과 다르거나
+  timestamp/schema가 유효하지 않으면 동의가 없는 것으로 처리하고 재동의를
+  받는다.
 - [x] `--yes`와 일반 환경 변수는 동의를 우회하지 못한다. 비대화형 setup을 추후
   지원할 때도 `--accept-cloud-upload-notice <version>`처럼 의도가 명확하고 version이
   일치하는 전용 flag를 model/permission 선택 flag와 함께 요구한다.
@@ -312,7 +314,7 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   "schema": 1,
   "consent": {
     "cloudUpload": true,
-    "noticeVersion": 1,
+    "noticeVersion": 2,
     "acceptedAt": "ISO-8601 timestamp"
   },
   "openCode": {
@@ -353,7 +355,7 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
   1. OpenCode 실행 가능 여부와 버전 확인
   2. 클라우드 전송 안내 및 동의
   3. `ask` 또는 `allow` 선택
-  4. 연결된 `opencode`/`opencode-go` provider 조회
+  4. 연결된 `opencode`/`opencode-go`/`ollama-cloud` provider 조회
   5. 선택 provider의 `capabilities.input.image === true` 모델만 표시
   6. 선택 결과 요약 및 최종 확인
   7. helper 설정 원자적 저장
@@ -363,8 +365,8 @@ OpenCode는 JSON과 JSONC를 모두 지원하며 여러 위치의 설정을 병�
 - [x] 위 1~9를 연결했다. setup은 helper 설정 저장 후 제한적 전역 병합을 수행하고,
   사전 안전검사가 실패하면 수동 fallback으로 전환한다. 쓰기 단계 등록 실패 시에는
   helper 설정이 남았음을 오류 stage와 함께 명시한다.
-- [x] 연결된 Go/Zen provider가 없으면 `/connect` 안내 후 아무 설정도 설치하지 않고
-  종료한다. 자격 증명 파일을 직접 찾거나 읽지 않는다.
+- [x] 연결된 Go/Zen/Ollama Cloud provider가 없으면 `/connect` 안내 후 아무 설정도
+  설치하지 않고 종료한다. 자격 증명 파일을 직접 찾거나 읽지 않는다.
 - [x] 이미지 모델이 없으면 provider 상태와 해결 방법만 보여 주고 종료한다.
 - [x] provider/모델 목록은 정렬하고 사람이 읽을 label과 실제 ID를 함께 보여 준다.
 - [x] 설정 중 `Ctrl+C`, EOF, 거절, OpenCode timeout을 안정적인 오류와 exit code로
@@ -517,6 +519,8 @@ npm run build
 - [x] 최초 publish 전에 version과 changelog를 확정하고 Git tag/commit이 일치하는지
   확인한다. annotated `v0.1.0`은 release commit `2b83859`를 가리킨다.
 - [x] 승인된 수동 `npm publish --access public`로 `0.1.0`을 배포한다.
+- [x] 0.2.0은 GitHub Release(annotated `v0.2.0` 태그) + trusted publishing
+  워크플로로 배포한다 (OIDC, publish.yml).
 - [x] registry의 새 tarball을 cache 없는 격리 환경에서 설치해 검증한다. 로컬 checkout
   tarball 검증만으로 release 완료 처리하지 않는다.
 - [x] `npm view @pawprint0706/opencode-vision-helper`의 version, dist-tag, engines,
@@ -528,12 +532,12 @@ npm run build
 ## 최종 수동 인수 시나리오
 
 - [ ] OpenCode와 Node만 설치된 새 사용자 환경을 준비한다.
-- [ ] OpenCode `/connect`로 Go 또는 Zen을 연결한다.
+- [ ] OpenCode `/connect`로 Go, Zen 또는 Ollama Cloud를 연결한다.
 - [ ] npm global install 후 임의 디렉터리에서 CLI가 실행되는지 확인한다.
 - [ ] setup에서 동의를 거절하면 어떤 설정/플러그인도 설치되지 않는지 확인한다.
 - [ ] setup을 다시 실행해 `ask`, provider, 모델을 선택한다.
-- [ ] OpenCode 재시작 후 text-only Go/Zen 모델에서 `vision_analyze`가 보이는지
-  확인한다.
+- [ ] OpenCode 재시작 후 text-only Go/Zen/Ollama Cloud 모델에서 `vision_analyze`가
+  보이는지 확인한다.
 - [ ] synthetic image로 `ask` 승인 전에는 전송되지 않고 승인 후 결과가 오는지
   확인한다.
 - [ ] CLI가 model 인자 없이 저장된 모델로 같은 synthetic image를 분석하는지

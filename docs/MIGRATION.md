@@ -9,17 +9,18 @@
 ## Goal
 
 Create an independent OpenCode-only CLI and native tool that lets a model
-without image input delegate one local image to an image-capable OpenCode Go or
-Zen model. OpenCode must remain the source of truth for authentication, provider
-configuration, model metadata, and model-specific wire protocols.
+without image input delegate one local image to an image-capable OpenCode Go,
+Zen, or Ollama Cloud model. OpenCode must remain the source of truth for
+authentication, provider configuration, model metadata, and model-specific wire
+protocols.
 
 ## Decisions
 
 - Keep a CLI as the public and diagnostic interface.
 - Ship a thin OpenCode custom-tool or plugin adapter for model-driven calls.
 - Prefer the OpenCode SDK/server over direct Zen/Go HTTP calls.
-- Limit model IDs to `opencode-go/*` and `opencode/*` and require image input
-  modality.
+- Limit model IDs to `opencode-go/*`, `opencode/*`, and `ollama-cloud/*` and
+  require image input modality.
 - Gate native tool execution on the calling model recorded by OpenCode: only an
   explicit `capabilities.input.image: false` may use the fallback; capable and
   unverifiable callers are rejected before any image access.

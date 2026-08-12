@@ -26,13 +26,13 @@ const RETRYABLE = new Set<ErrorCode>([
 const NEXT_ACTION: Record<ErrorCode, string> = {
   BAD_REQUEST: "Check the image path, format, and command arguments.",
   CONFIGURATION:
-    "Run opencode-vision-helper setup, pass --model opencode-go/<id> or opencode/<id>, or set OPENCODE_VISION_MODEL.",
+    "Run opencode-vision-helper setup, pass --model opencode-go/<id>, opencode/<id>, or ollama-cloud/<id>, or set OPENCODE_VISION_MODEL.",
   OPENCODE_UNAVAILABLE: "Install or start OpenCode, then retry.",
-  PROVIDER_NOT_CONNECTED: "Connect OpenCode Go or Zen with /connect, then retry.",
-  MODEL_NOT_FOUND: "Choose an available Go or Zen model shown by doctor.",
+  PROVIDER_NOT_CONNECTED: "Connect OpenCode Go, Zen, or Ollama Cloud with /connect, then retry.",
+  MODEL_NOT_FOUND: "Choose an available Go, Zen, or Ollama Cloud model shown by doctor.",
   MODEL_NOT_VISION_CAPABLE: "Choose a model whose input capabilities include images.",
   CALLER_MODEL_UNVERIFIED:
-    "Use a connected OpenCode Go or Zen model whose metadata explicitly disables image input.",
+    "Use a connected OpenCode Go, Zen, or Ollama Cloud model whose metadata explicitly disables image input.",
   CALLER_VISION_CAPABLE: "Analyze the image directly with the calling model.",
   CONSENT_REQUIRED:
     "Run opencode-vision-helper setup to review and accept the cloud-upload notice.",

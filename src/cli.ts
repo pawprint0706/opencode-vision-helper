@@ -70,8 +70,8 @@ Usage:
   opencode-vision-helper config show [--json]
   opencode-vision-helper config reset-consent [--json]
 
-Only opencode-go/<model> and opencode/<model> are supported.
-Live analysis requires setup consent or --allow-upload because the selected image is sent to OpenCode Go/Zen.
+Only opencode-go/<model>, opencode/<model>, and ollama-cloud/<model> are supported.
+Live analysis requires setup consent or --allow-upload because the selected image is sent to OpenCode Go/Zen/Ollama Cloud.
 The default analysis timeout is ${DEFAULT_ANALYSIS_TIMEOUT_MS / 1_000} seconds.
 `;
 

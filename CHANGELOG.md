@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The project follows
 Semantic Versioning; while the major version is `0`, minor releases may still
 contain intentional interface changes that are called out below.
 
+## [0.2.0] - 2026-08-13
+
+### Added
+
+- Ollama Cloud (`ollama-cloud/*`) as a third supported provider for model
+  discovery, vision-capability checks, delegated analysis, and caller validation.
+- Ollama Cloud models fall back to free-form text analysis when structured
+  output is requested; live verification confirmed ollama-cloud does not support
+  json_schema structured output.
+
+### Changed
+
+- Cloud-upload consent notice version raised to 2; existing v1 consent requires
+  re-acceptance through setup because the recipient set now includes Ollama Cloud.
+
 ## [0.1.0] - 2026-08-05
 
 ### Added

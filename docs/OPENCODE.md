@@ -8,10 +8,10 @@ The adapter and ownership-safe lifecycle commands are implemented. Installation 
 the scoped public package and its platform-specific global CLI shim is covered by the
 package verification suite.
 
-Before using either the CLI or native tool, connect OpenCode Go or Zen through
-OpenCode's `/connect` flow and choose an image-capable `opencode-go/*` or
-`opencode/*` model. This helper never reads, imports, copies, or changes the
-resulting credentials.
+Before using either the CLI or native tool, connect OpenCode Go, Zen, or Ollama
+Cloud through OpenCode's `/connect` flow and choose an image-capable
+`opencode-go/*`, `opencode/*`, or `ollama-cloud/*` model. This helper never reads,
+imports, copies, or changes the resulting credentials.
 
 The recommended global installation flow is:
 
@@ -80,7 +80,7 @@ authentication files are never purge targets.
 
 | Symptom | Safe next step |
 | --- | --- |
-| Go/Zen is absent from setup | Connect it through OpenCode `/connect`; do not copy credentials into this project. |
+| Go/Zen/Ollama Cloud is absent from setup | Connect it through OpenCode `/connect`; do not copy credentials into this project. |
 | Saved model drift appears in doctor | Rerun setup and select a connected model whose input metadata includes images. |
 | Plugin is not visible after setup | Restart OpenCode and inspect `doctor --json`; check project/agent overrides and duplicate legacy-wrapper loading. |
 | Both `opencode.json` and `opencode.jsonc` exist, or JSONC is invalid/read-only | Use setup's manual fallback, consolidate to one intended global config, and preserve unrelated settings. |
@@ -193,8 +193,8 @@ agent instructions so agents have one preferred path. Uninstalling the old packa
 deleting its configuration, or removing its credentials is a separate operation
 that requires explicit approval and must follow the archived project's
 [ownership-aware removal instructions](https://github.com/pawprint0706/orca-vision-helper/blob/main/docs/AGENT_UNINSTALL.md).
-No old provider credential is migrated; connect Go or Zen in OpenCode with
-`/connect` instead.
+No old provider credential is migrated; connect Go, Zen, or Ollama Cloud in
+OpenCode with `/connect` instead.
 
 The model precedence is a tool-call `model`, plugin option, `OPENCODE_VISION_MODEL`,
 then the model saved by setup. Every native invocation also requires current saved
@@ -218,18 +218,19 @@ remove previously merged snippets manually after reviewing unrelated settings.
 If the owned plugin was already deleted, the uninstaller can remove the validated
 stale manifest without touching anything else.
 
-Only `opencode-go/*` and `opencode/*` models whose input capabilities include images
-are accepted.
+Only `opencode-go/*`, `opencode/*`, and `ollama-cloud/*` models whose input
+capabilities include images are accepted.
 
 That model is the delegated analysis model, not the model calling the tool. At the
 start of every native invocation, the adapter reads the caller identity from the
 current OpenCode message and checks it against the loading server's provider model
-metadata. The invocation proceeds only when the caller belongs to OpenCode Go or
-Zen and its `capabilities.input.image` value is exactly `false`. A value of `true`
-returns `CALLER_VISION_CAPABLE` with an instruction to analyze the image directly.
-Missing models, unsupported providers, disconnected providers, and absent or
-ambiguous image capability return `CALLER_MODEL_UNVERIFIED`. Both checks happen
-before path resolution, image reads, permission prompts, or analysis cost.
+metadata. The invocation proceeds only when the caller belongs to OpenCode Go,
+Zen, or Ollama Cloud and its `capabilities.input.image` value is exactly `false`.
+A value of `true` returns `CALLER_VISION_CAPABLE` with an instruction to analyze
+the image directly. Missing models, unsupported providers, disconnected providers,
+and absent or ambiguous image capability return `CALLER_MODEL_UNVERIFIED`. Both
+checks happen before path resolution, image reads, permission prompts, or analysis
+cost.
 
 `timeoutMs` is optional and defaults to 120000. It must be between 1000 and
 1800000 milliseconds. Cancellation from OpenCode's tool context is propagated to
@@ -242,12 +243,12 @@ warning)`, and includes the retained session ID and warning details in tool meta
 
 ## Permission policy
 
-`vision_analyze` uploads the selected image to the configured OpenCode Go or Zen
-cloud model. The adapter calls OpenCode's permission API immediately before cloud
-analysis. `ask` is the recommended default because it presents an approval UI for
-each model call. `deny` removes the tool from that agent's available tool set. Use
-`allow` only in a trusted workflow where automatic image transmission is
-intentional.
+`vision_analyze` uploads the selected image to the configured OpenCode Go, Zen, or
+Ollama Cloud cloud model. The adapter calls OpenCode's permission API immediately
+before cloud analysis. `ask` is the recommended default because it presents an
+approval UI for each model call. `deny` removes the tool from that agent's
+available tool set. Use `allow` only in a trusted workflow where automatic image
+transmission is intentional.
 
 Saved helper consent and OpenCode permission are separate safeguards. Missing or
 outdated helper consent returns `CONSENT_REQUIRED` before image access or the
@@ -295,7 +296,7 @@ fetched, and multiple attachments require an explicit local `image` path.
 {
   "image": "optional absolute-or-session-relative-path",
   "prompt": "optional question",
-  "model": "optional opencode-go/... or opencode/..."
+  "model": "optional opencode-go/..., opencode/..., or ollama-cloud/..."
 }
 ```
 

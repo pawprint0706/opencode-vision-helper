@@ -215,6 +215,44 @@ describe("interactive setup", () => {
     ]);
   });
 
+  it("offers Ollama Cloud as a selectable provider with its own label", async () => {
+    const configPath = join(temporaryRoot, "config.json");
+    const prompter = new FakePrompter(
+      true,
+      [true, true],
+      ["ask", "ollama-cloud", "ollama-cloud/vision-ollama"],
+    );
+
+    await expect(
+      runInteractiveSetup({
+        configLocation: { configPath },
+        prompter,
+        services: setupServices({
+          doctor: async () => ({
+            ...doctorResult(),
+            connected_providers: ["opencode-go", "opencode", "ollama-cloud"],
+            image_models: [
+              "opencode-go/vision-a",
+              "opencode/vision-zen",
+              "ollama-cloud/vision-ollama",
+            ],
+          }),
+        }),
+      }),
+    ).resolves.toMatchObject({
+      status: "configured",
+      model: "ollama-cloud/vision-ollama",
+    });
+    const providerChoices = prompter.selectCalls[1]?.choices ?? [];
+    expect(providerChoices.map((choice) => choice.value)).toContain("ollama-cloud");
+    expect(providerChoices.find((choice) => choice.value === "ollama-cloud")?.label).toContain(
+      "Ollama Cloud",
+    );
+    expect(prompter.selectCalls[2]?.choices.map((choice) => choice.value)).toEqual([
+      "ollama-cloud/vision-ollama",
+    ]);
+  });
+
   it("requires a second confirmation before saving allow", async () => {
     const configPath = join(temporaryRoot, "config.json");
     const declined = new FakePrompter(true, [true, false], ["allow"]);

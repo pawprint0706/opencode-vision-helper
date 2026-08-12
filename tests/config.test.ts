@@ -123,7 +123,7 @@ describe("helper configuration", () => {
           openCode: { permission: "ask", model: "openai/vision" },
         }),
       ),
-    ).toThrow(/Go or Zen/);
+    ).toThrow(/Go, Zen, or Ollama Cloud/);
   });
 
   it("returns an empty revision when no configuration exists", async () => {

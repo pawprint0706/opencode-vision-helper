@@ -40,7 +40,7 @@ remaining a one-time manual observation.
 | Requirement | Automated evidence |
 | --- | --- |
 | Image size, pixel, format, animation, orientation, resize, and corruption boundaries | `tests/imaging.test.ts` |
-| Go/Zen-only model prefix, connection, existence, and image modality | `tests/model.test.ts`, `tests/opencode.test.ts` |
+| Go/Zen/Ollama Cloud-only model prefix, connection, existence, and image modality | `tests/model.test.ts`, `tests/opencode.test.ts` |
 | Strict report and free-form text preservation | `tests/report.test.ts`, `tests/opencode-http.test.ts` |
 | SDK routes, file part, schema retry request, tool disabling, cleanup, errors, and cancellation | `tests/opencode-http.test.ts` |
 | CLI stdout/stderr/exit, human/JSON/text output, Unicode paths, and timeout | `tests/cli.test.ts`, `scripts/verify-package.mjs` |
@@ -73,6 +73,25 @@ only its generated synthetic settings UI to:
 These model IDs, costs, and response times are observations from one run, not stable
 guarantees. The script deletes its temporary fixture and requires `--allow-live`,
 `--go-model`, and `--zen-model`; it is excluded from the default test gate.
+
+## Ollama Cloud live validation record
+
+On 2026-08-13, after explicit authorization and closing the user's port-4096 TUI
+server, `doctor` confirmed OpenCode 1.18.16 with `opencode-go`, `ollama-cloud`, and
+`opencode` connected. The guarded live-smoke script sent only its generated
+synthetic settings UI to:
+
+- `opencode-go/gpt-5.6-luna`: structured report succeeded and found the clipped save
+  button; observed cost `0.000881525`
+- `opencode/mimo-v2.5-free`: structured report succeeded; observed cost `0`
+- `ollama-cloud/gemma4:31b`: text fallback succeeded and described the same clipped
+  button; observed cost `0`
+
+Direct SDK json_schema prompts to `ollama-cloud/gemma4:31b` and
+`ollama-cloud/qwen3.5:397b` both returned "Model did not produce structured output",
+confirming the static text-only flag for ollama-cloud. `ollama-cloud/kimi-k2.5` was
+retired on 2026-07-31 (HTTP 410) and is not a valid test model. Text-mode analysis
+succeeded for `gemma4:31b`, `qwen3.5:397b`, and `minimax-m3`.
 
 The project-scoped adapter was then installed from the local checkout and loaded by
 OpenCode 1.18.12. A vision-limited `opencode-go/kimi-k2.7-code` TUI session called
@@ -215,6 +234,17 @@ registry version into an isolated global prefix with a separate empty HOME, npm 
 config, and cache. The generated `.cmd` shim executed `--help` successfully. This
 post-publication smoke test did not inspect OpenCode credentials, discover provider
 models, or perform a live image analysis.
+
+## npm 0.2.0 Ollama Cloud release
+
+Version 0.2.0 adds `ollama-cloud/*` as a supported provider, raises the
+cloud-upload consent notice to version 2, and switches ollama-cloud analysis to a
+verified text-only fallback (see the Ollama Cloud live validation record above and
+[docs/OLLAMA_CLOUD.md](OLLAMA_CLOUD.md)). The release gate (`npm run verify` and
+`npm pack --dry-run`) passes on the exact release commit, and the annotated tag
+`v0.2.0` must point to that commit before the GitHub Release is published. The
+publish workflow uses npm trusted publishing (OIDC) and produces a provenance
+attestation for this version.
 
 ## Deferred validation
 
