@@ -240,11 +240,18 @@ models, or perform a live image analysis.
 Version 0.2.0 adds `ollama-cloud/*` as a supported provider, raises the
 cloud-upload consent notice to version 2, and switches ollama-cloud analysis to a
 verified text-only fallback (see the Ollama Cloud live validation record above and
-[docs/OLLAMA_CLOUD.md](OLLAMA_CLOUD.md)). The release gate (`npm run verify` and
-`npm pack --dry-run`) passes on the exact release commit, and the annotated tag
-`v0.2.0` must point to that commit before the GitHub Release is published. The
-publish workflow uses npm trusted publishing (OIDC) and produces a provenance
-attestation for this version.
+[docs/OLLAMA_CLOUD.md](OLLAMA_CLOUD.md)).
+
+Published 2026-08-13 via the GitHub Release at tag `v0.2.0` (commit `ff873c3`).
+The publish workflow used npm trusted publishing (OIDC) and produced a provenance
+attestation; the registry reports `latest` = `0.2.0` with integrity
+`sha512-mCZigpX3pdia3O6t6C+vAdzM+97Odxz4N6uXSkxvThCpS4vK3ubX7g2l9E1UI+fM2/nhFq7/sVID5+iLr4TlDw==`
+and shasum `b6984bf28cdf7c99be771e970854f1fb22efb650`. Windows, macOS, and Linux
+CI on Node.js 20 and 24 passed for the release commit
+([run 31626211086](https://github.com/pawprint0706/opencode-vision-helper/actions/runs/31626211086))
+and the publish workflow
+([run 31626228677](https://github.com/pawprint0706/opencode-vision-helper/actions/runs/31626228677))
+succeeded end-to-end with trusted publishing.
 
 ## Deferred validation
 
