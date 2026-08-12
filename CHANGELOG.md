@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The project follows
 Semantic Versioning; while the major version is `0`, minor releases may still
 contain intentional interface changes that are called out below.
 
+## [0.2.1] - 2026-08-13
+
+### Fixed
+
+- Spawn the OpenCode server on a free port in the 10000-50000 range instead of the
+  SDK's fixed default 4096, retrying on conflict. This avoids clashing with an
+  already-running OpenCode desktop-app server on Windows, which previously made
+  `doctor` and `setup` fail with `OPENCODE_UNAVAILABLE`.
+- Strip the inherited `OPENCODE_SERVER_PASSWORD`/`OPENCODE_SERVER_USERNAME`
+  environment variables while spawning the isolated analysis server and restore
+  them afterwards. Without this, a server spawned from the desktop-app process
+  tree required Basic auth and the SDK client received 401.
+
 ## [0.2.0] - 2026-08-13
 
 ### Added

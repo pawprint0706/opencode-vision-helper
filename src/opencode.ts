@@ -1,3 +1,5 @@
+import { createServer } from "node:net";
+
 import { createOpencode, type OpencodeClient, type Provider } from "@opencode-ai/sdk/v2";
 
 import { AppError, mapOpenCodeError } from "./errors.js";
@@ -72,15 +74,56 @@ async function disabledTools(
   return Object.fromEntries(response.data.map((id) => [id, false]));
 }
 
+const MIN_SERVER_PORT = 10_000;
+const MAX_SERVER_PORT = 50_000;
+const PORT_ATTEMPTS = 10;
+
+async function freePort(): Promise<number> {
+  for (let attempt = 0; attempt < PORT_ATTEMPTS; attempt++) {
+    const port =
+      MIN_SERVER_PORT + Math.floor(Math.random() * (MAX_SERVER_PORT - MIN_SERVER_PORT + 1));
+    const probe = createServer();
+    const available = await new Promise<boolean>((resolve) => {
+      probe.once("error", () => resolve(false));
+      probe.listen(port, "127.0.0.1", () => resolve(true));
+    });
+    await new Promise<void>((resolve) => {
+      probe.close(() => resolve());
+    });
+    if (available) {
+      return port;
+    }
+  }
+  throw new Error("Could not find a free port for the OpenCode server.");
+}
+
 export async function withOpenCode<T>(
   callback: (client: OpencodeClient) => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
   let instance: Awaited<ReturnType<typeof createOpencode>>;
+  const serverPassword = process.env.OPENCODE_SERVER_PASSWORD;
+  const serverUsername = process.env.OPENCODE_SERVER_USERNAME;
+  if (serverPassword !== undefined) {
+    delete process.env.OPENCODE_SERVER_PASSWORD;
+  }
+  if (serverUsername !== undefined) {
+    delete process.env.OPENCODE_SERVER_USERNAME;
+  }
   try {
-    instance = await createOpencode(signal ? { timeout: 10_000, signal } : { timeout: 10_000 });
+    const port = await freePort();
+    instance = await createOpencode(
+      signal ? { port, timeout: 10_000, signal } : { port, timeout: 10_000 },
+    );
   } catch (error) {
     throw mapOpenCodeError(error, "OPENCODE_UNAVAILABLE", signal);
+  } finally {
+    if (serverPassword !== undefined) {
+      process.env.OPENCODE_SERVER_PASSWORD = serverPassword;
+    }
+    if (serverUsername !== undefined) {
+      process.env.OPENCODE_SERVER_USERNAME = serverUsername;
+    }
   }
   try {
     return await callback(instance.client);
