@@ -11,6 +11,7 @@ import {
   diagnoseOpenCodeRegistration,
   inspectOpenCodeRegistration,
   OPENCODE_PLUGIN_PACKAGE,
+  pluginSpecifier,
   registerOpenCodePlugin,
   unregisterOpenCodePlugin,
   verifyOpenCodeManualRegistration,
@@ -50,7 +51,7 @@ describe("OpenCode global registration", () => {
     ).resolves.toEqual({
       configPaths: [resolve(jsonPath), resolve(jsoncPath)],
       snippet: {
-        plugin: [OPENCODE_PLUGIN_PACKAGE],
+        plugin: [pluginSpecifier()],
         permission: { vision_analyze: "ask" },
       },
     });
@@ -104,14 +105,14 @@ describe("OpenCode global registration", () => {
     });
     expect(result).toMatchObject({ status: "registered", changed: true, permission: "ask" });
     expect(JSON.parse(await readFile(location.configPath, "utf8"))).toEqual({
-      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      plugin: [pluginSpecifier()],
       permission: { vision_analyze: "ask" },
     });
     expect(JSON.parse(await readFile(location.manifestPath, "utf8"))).toMatchObject({
       schema: 1,
       owner: "opencode-vision-helper",
       configPath: resolve(location.configPath),
-      plugin: { value: OPENCODE_PLUGIN_PACKAGE, added: true },
+      plugin: { value: pluginSpecifier(), added: true },
       permission: { value: "ask", changed: true, previousPresent: false },
     });
   });
@@ -132,7 +133,7 @@ describe("OpenCode global registration", () => {
     expect(updated).toContain("\r\n");
     expect(parse(updated.slice(1), undefined, { allowTrailingComma: true })).toMatchObject({
       theme: "dark",
-      plugin: ["other", OPENCODE_PLUGIN_PACKAGE],
+      plugin: ["other", pluginSpecifier()],
       permission: { bash: "deny", vision_analyze: "ask" },
     });
   });
@@ -149,6 +150,60 @@ describe("OpenCode global registration", () => {
     });
     expect(await readFile(location.configPath, "utf8")).toBe(configBefore);
     expect(await readFile(location.manifestPath, "utf8")).toBe(manifestBefore);
+  });
+
+  it("re-pins an unversioned plugin entry to the current versioned spec", async () => {
+    const location = paths();
+    await mkdir(dirname(location.configPath), { recursive: true });
+    await writeFile(
+      location.configPath,
+      `${JSON.stringify({ plugin: [OPENCODE_PLUGIN_PACKAGE], permission: { vision_analyze: "ask" } }, null, 2)}\n`,
+    );
+
+    const plan = await inspectOpenCodeRegistration("ask", location);
+    expect(plan).toMatchObject({ pluginPresent: true, changesRequired: true });
+
+    await expect(
+      registerOpenCodePlugin("ask", { ...location, expectedRevision: plan.revision }),
+    ).resolves.toMatchObject({ status: "registered", changed: true });
+    expect(JSON.parse(await readFile(location.configPath, "utf8"))).toEqual({
+      plugin: [pluginSpecifier()],
+      permission: { vision_analyze: "ask" },
+    });
+    expect(JSON.parse(await readFile(location.manifestPath, "utf8"))).toMatchObject({
+      plugin: { value: pluginSpecifier(), added: false },
+    });
+  });
+
+  it("re-pins an older versioned plugin entry to the current version", async () => {
+    const location = paths();
+    await mkdir(dirname(location.configPath), { recursive: true });
+    const stale = pluginSpecifier("0.0.0");
+    await writeFile(
+      location.configPath,
+      `${JSON.stringify({ plugin: [stale], permission: { vision_analyze: "ask" } }, null, 2)}\n`,
+    );
+
+    const plan = await inspectOpenCodeRegistration("ask", location);
+    expect(plan).toMatchObject({ pluginPresent: true, changesRequired: true });
+
+    await registerOpenCodePlugin("ask", { ...location, expectedRevision: plan.revision });
+    expect(JSON.parse(await readFile(location.configPath, "utf8"))).toEqual({
+      plugin: [pluginSpecifier()],
+      permission: { vision_analyze: "ask" },
+    });
+  });
+
+  it("treats an entry already pinned to the current version as unchanged", async () => {
+    const location = paths();
+    await mkdir(dirname(location.configPath), { recursive: true });
+    await writeFile(
+      location.configPath,
+      `${JSON.stringify({ plugin: [pluginSpecifier()], permission: { vision_analyze: "ask" } }, null, 2)}\n`,
+    );
+
+    const plan = await inspectOpenCodeRegistration("ask", location);
+    expect(plan).toMatchObject({ pluginPresent: true, changesRequired: false });
   });
 
   it("diagnoses direct registration and scalar global permission without writing", async () => {
@@ -460,7 +515,7 @@ describe("OpenCode global unregistration", () => {
     await unregisterOpenCodePlugin(location);
 
     expect(JSON.parse(await readFile(location.configPath, "utf8"))).toEqual({
-      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      plugin: [pluginSpecifier()],
       permission: { vision_analyze: "deny" },
     });
   });
@@ -489,7 +544,7 @@ describe("OpenCode global unregistration", () => {
 
     await expect(unregisterOpenCodePlugin(owned)).rejects.toThrow(/changed outside setup/);
     expect(JSON.parse(await readFile(owned.configPath, "utf8"))).toMatchObject({
-      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      plugin: [pluginSpecifier()],
       permission: { vision_analyze: "deny" },
     });
 

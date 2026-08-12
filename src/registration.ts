@@ -19,10 +19,24 @@ import {
 
 import type { HelperPermission } from "./config.js";
 import { AppError } from "./errors.js";
+import { PACKAGE_VERSION } from "./version.js";
 
 export const OPENCODE_PLUGIN_PACKAGE = "@pawprint0706/opencode-vision-helper";
 export const REGISTRATION_MANIFEST_FILENAME = "opencode-registration.json";
 const REGISTRATION_OWNER = "opencode-vision-helper";
+
+export function pluginSpecifier(version: string = PACKAGE_VERSION): string {
+  return `${OPENCODE_PLUGIN_PACKAGE}@${version}`;
+}
+
+export function helperPluginName(spec: string): string {
+  const separator = spec.lastIndexOf("@");
+  return separator <= 0 ? spec : spec.slice(0, separator);
+}
+
+export function isHelperPluginEntry(spec: string): boolean {
+  return helperPluginName(spec) === OPENCODE_PLUGIN_PACKAGE;
+}
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -31,7 +45,7 @@ type RegistrationManifest = {
   schema: 1;
   owner: typeof REGISTRATION_OWNER;
   configPath: string;
-  plugin: { value: typeof OPENCODE_PLUGIN_PACKAGE; added: boolean };
+  plugin: { value: string; added: boolean };
   permission: {
     value: HelperPermission;
     changed: boolean;
@@ -61,7 +75,7 @@ export type OpenCodeRegistrationPlan = {
   permissionChange: boolean;
   changesRequired: boolean;
   snippet: {
-    plugin: [typeof OPENCODE_PLUGIN_PACKAGE];
+    plugin: [string];
     permission: { vision_analyze: HelperPermission };
   };
 };
@@ -266,7 +280,7 @@ export async function createOpenCodeManualRegistrationPlan(
   return {
     configPaths,
     snippet: {
-      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      plugin: [pluginSpecifier()],
       permission: { vision_analyze: permission },
     },
   };
@@ -370,7 +384,8 @@ function parseManifest(content: string, path: string): RegistrationManifest {
     value.schema !== 1 ||
     value.owner !== REGISTRATION_OWNER ||
     typeof value.configPath !== "string" ||
-    value.plugin.value !== OPENCODE_PLUGIN_PACKAGE ||
+    typeof value.plugin.value !== "string" ||
+    !isHelperPluginEntry(value.plugin.value) ||
     typeof value.plugin.added !== "boolean" ||
     (permission.value !== "ask" && permission.value !== "allow") ||
     typeof permission.changed !== "boolean" ||
@@ -398,10 +413,10 @@ function inspectConfig(
       `The existing OpenCode plugin setting is not a string array: ${configPath}`,
     );
   }
-  const packageCount = Array.isArray(plugin)
-    ? plugin.filter((item) => item === OPENCODE_PLUGIN_PACKAGE).length
-    : 0;
-  if (packageCount > 1) {
+  const helperEntries = Array.isArray(plugin)
+    ? plugin.filter((item): item is string => typeof item === "string" && isHelperPluginEntry(item))
+    : [];
+  if (helperEntries.length > 1) {
     throw registrationError(
       `The OpenCode plugin list contains duplicate helper entries: ${configPath}`,
     );
@@ -420,11 +435,14 @@ function inspectConfig(
     );
   }
   const permissionChange = currentPermission !== undefined && currentPermission !== permission;
+  const pluginEntry = helperEntries[0];
+  const pluginVersionMismatch = pluginEntry !== undefined && pluginEntry !== pluginSpecifier();
   return {
-    pluginPresent: packageCount === 1,
+    pluginPresent: helperEntries.length === 1,
     ...(currentPermission !== undefined ? { currentPermission } : {}),
     permissionChange,
-    changesRequired: packageCount === 0 || currentPermission !== permission,
+    changesRequired:
+      helperEntries.length === 0 || pluginVersionMismatch || currentPermission !== permission,
   };
 }
 
@@ -463,8 +481,7 @@ function verifyOwnedState(
       : [];
   if (
     manifest.plugin.added &&
-    (plugin !== config.plugin ||
-      plugin.filter((item) => item === OPENCODE_PLUGIN_PACKAGE).length !== 1)
+    (plugin !== config.plugin || plugin.filter(isHelperPluginEntry).length !== 1)
   ) {
     throw registrationError("The helper-owned OpenCode plugin entry changed outside setup.");
   }
@@ -500,7 +517,7 @@ export async function inspectOpenCodeRegistration(
     revision: content === undefined ? null : sha256(content),
     ...inspectConfig(config, permission, configPath),
     snippet: {
-      plugin: [OPENCODE_PLUGIN_PACKAGE],
+      plugin: [pluginSpecifier()],
       permission: { vision_analyze: permission },
     },
   };
@@ -553,7 +570,8 @@ export async function diagnoseOpenCodeRegistration(
     );
   }
   const npmPluginEntries = Array.isArray(plugin)
-    ? plugin.filter((item) => item === OPENCODE_PLUGIN_PACKAGE).length
+    ? plugin.filter((item): item is string => typeof item === "string" && isHelperPluginEntry(item))
+        .length
     : 0;
   const legacyWrapperPresent = wrapper !== undefined;
   const legacyWrapperOwned = legacyWrapperIsOwned(wrapper, legacyManifestContent);
@@ -627,17 +645,26 @@ function mergeConfig(
   let body = content === undefined ? "{}\n" : bom ? content.slice(1) : content;
   const format = formattingOptions(body);
   const plugin = Array.isArray(config.plugin) ? config.plugin : [];
-  if (!plugin.includes(OPENCODE_PLUGIN_PACKAGE)) {
+  const targetSpec = pluginSpecifier();
+  const existingIndex = plugin.findIndex(
+    (item) => typeof item === "string" && isHelperPluginEntry(item),
+  );
+  if (existingIndex === -1) {
     body = applyEdits(
       body,
       Array.isArray(config.plugin)
-        ? modify(body, ["plugin", plugin.length], OPENCODE_PLUGIN_PACKAGE, {
+        ? modify(body, ["plugin", plugin.length], targetSpec, {
             formattingOptions: format,
             isArrayInsertion: true,
           })
-        : modify(body, ["plugin"], [OPENCODE_PLUGIN_PACKAGE], {
+        : modify(body, ["plugin"], [targetSpec], {
             formattingOptions: format,
           }),
+    );
+  } else if (plugin[existingIndex] !== targetSpec) {
+    body = applyEdits(
+      body,
+      modify(body, ["plugin", existingIndex], targetSpec, { formattingOptions: format }),
     );
   }
   body = applyEdits(
@@ -657,7 +684,7 @@ function removeOwnedConfig(
   const format = formattingOptions(body);
   if (manifest.plugin.added) {
     const plugin = config.plugin as string[];
-    const index = plugin.indexOf(OPENCODE_PLUGIN_PACKAGE);
+    const index = plugin.findIndex((item) => isHelperPluginEntry(item));
     body = removeArrayValue(body, ["plugin", index], index, plugin.length);
   }
   if (manifest.permission.changed) {
@@ -770,7 +797,7 @@ function createManifest(
     owner: REGISTRATION_OWNER,
     configPath,
     plugin: {
-      value: OPENCODE_PLUGIN_PACKAGE,
+      value: pluginSpecifier(),
       added: oldManifest?.plugin.added === true || !pluginPresent,
     },
     permission: {
@@ -809,7 +836,8 @@ function countDirectPluginEntries(config: Record<string, unknown>, configPath: s
     );
   }
   return Array.isArray(plugin)
-    ? plugin.filter((item) => item === OPENCODE_PLUGIN_PACKAGE).length
+    ? plugin.filter((item): item is string => typeof item === "string" && isHelperPluginEntry(item))
+        .length
     : 0;
 }
 
